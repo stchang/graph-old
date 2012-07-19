@@ -2,7 +2,8 @@
 
 (require data/queue)
 
-(provide graph make-graph add-edge add-di-edge add-edge! add-di-edge! bfs)
+(provide graph make-graph add-edge add-di-edge add-edge! add-di-edge! 
+         bfs dfs)
 
 ;; TODO:
 ;; 2012-07-15
@@ -130,25 +131,27 @@
   (define f (make-hash)) ;; f[v] = when search finishes v's adj list (v black)
   (define π (make-hash))
   (define time 0)
-  
+  (define vertices (hash-keys g))
   ;; init
-  (for ([u (in-hash-keys g)])
+  (for ([u vertices])
     (hash-set! color u 'white)
     (hash-set! π u #f))
   
   ;; do search
-  (for ([u (in-hash-keys g)])
+  (for ([u vertices])
     (when (eq? (hash-ref color u) 'white)
       ;; visit vertex u
-      (let visit ([u u])
+      (let VISIT ([u u])
         (hash-set! color u 'gray)
         (set! time (add1 time))
         (hash-set! d u time)
-        (for ([v (in-set (hash-ref u))])
+        (for ([v (in-set (hash-ref g u))])
           (when (eq? (hash-ref color v) 'white)
             (hash-set! π v u)
-            (visit v)))
+            (VISIT v)))
         (hash-set! color u 'black)
         (set! time (add1 time))
         (hash-set! f u time))))
+  
+  (values color d f π)
   )

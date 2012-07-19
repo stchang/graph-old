@@ -130,4 +130,21 @@
    g2 
    (make-graph (x <- u) (v <- u) (v <- x) (y <- v)
                (x <- y) (y <- w) (z <- w) (z <- z)))
+  
+  (check-equal?
+   g2
+   (make-graph ((x (v)) (u (v x)) (v (y)) (y (x)) (w (y z)) (z (z)))))
+  
+
+  ;; this is here to see the ordering of nodes
+  (check-equal? (hash-keys g2) '(z u w x v y))
+  
+  (let-values ([(color d f π) (dfs g2)])
+    (check-equal? color (make-hash '((u . black) (x . black) (v . black) 
+                                     (y . black) (w . black) (z . black))))
+    (check-equal? d (make-hash '((u . 3)  (v . 5) (x . 4) (y . 6) (w . 11) (z . 1))))
+    (check-equal? f (make-hash '((u . 10) (v . 8) (x . 9) (y . 7) (w . 12) (z . 2))))
+    (check-equal? π (make-hash '((u . #f) (v . x) (x . u) (y . v) (w . #f) (z . #f))))
+    )
+  
   )
