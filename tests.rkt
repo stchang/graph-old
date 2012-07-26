@@ -105,12 +105,12 @@
   
   )
 
-;; test dfs, example from fig 22.4, p542 of CLRS2e
+;; test dfs
 (module+ test
   (require rackunit)
   
   ;;
-  ;; check dfs with mutable graph
+  ;; check dfs with mutable graph, example from fig 22.4, p542 of CLRS2e
   ;;
   (define g2 (make-graph))
   (add-di-edge! g2 'u 'x)
@@ -137,14 +137,93 @@
   
 
   ;; this is here to see the ordering of nodes
-  (check-equal? (hash-keys g2) '(z u w x v y))
+  ;(check-equal? (hash-keys g2) '(z u w x v y))
+  (define (parens-thm? g)
+    ; do dfs
+    (define-values (color d f π) (dfs g))
+    (define keys (hash-keys g))
+
+    ; predicates for parens thm
+    (define (valid? u v)
+      (and (< (hash-ref d u) (hash-ref f u))
+           (< (hash-ref d v) (hash-ref f v))))
+    ;; true if u is a descendant of v
+    (define (descendant? u v)
+      (and u
+           (or (equal? (hash-ref π u) v)
+               (descendant? (hash-ref π u) v))))
+    (define (disjoint? u v)
+      (and (or (< (hash-ref f u) (hash-ref d v))
+               (< (hash-ref f v) (hash-ref d u)))
+           (not (descendant? u v))
+           (not (descendant? v u))))
+    (define (within? u v)
+      (and (< (hash-ref d v) (hash-ref d u))
+           (< (hash-ref f u) (hash-ref f v))
+           (descendant? u v)))
+    (define (nesting? u v)
+      (define d? (descendant? v u))
+      (define <? (< (hash-ref d u) (hash-ref d v) (hash-ref f v) (hash-ref f u)))
+      (or (and d? <?)
+          (and (not d?) (not <?))))
+
+    (and
+     (equal? color (make-hash (map (λ (k) (cons k 'black)) keys)))
+                               
+    ; testing these dont work because it depends on order returned by hash-keys
+    ;(equal? d (make-hash '((u . 3)  (v . 5) (x . 4) (y . 6) (w . 11) (z . 1))))
+    ;(equal? f (make-hash '((u . 10) (v . 8) (x . 9) (y . 7) (w . 12) (z . 2))))
+    ;(equal? π (make-hash '((u . #f) (v . x) (x . u) (y . v) (w . #f) (z . w))))
+    
+     ; but we can test "parenthesis theorem" (p543 thm 22.7)
+     (for*/and ([u keys] [v keys])
+       ;(printf "[d[u],f[u]]=[~a,~a]\n" (hash-ref d u) (hash-ref f u))
+       ;(printf "[d[v],f[v]]=[~a,~a]\n" (hash-ref d v) (hash-ref f v))
+       (or (equal? u v)
+           (and (valid? u v)
+                (or (disjoint? u v)
+                    (within? u v)
+                    (within? v u))
+                (nesting? u v))))))
   
-  (let-values ([(color d f π) (dfs g2)])
-    (check-equal? color (make-hash '((u . black) (x . black) (v . black) 
-                                     (y . black) (w . black) (z . black))))
-    (check-equal? d (make-hash '((u . 3)  (v . 5) (x . 4) (y . 6) (w . 11) (z . 1))))
-    (check-equal? f (make-hash '((u . 10) (v . 8) (x . 9) (y . 7) (w . 12) (z . 2))))
-    (check-equal? π (make-hash '((u . #f) (v . x) (x . u) (y . v) (w . #f) (z . #f))))
-    )
+    
+  (check-true (parens-thm? g))
+
   
+  
+  
+  ;;
+  ;; check dfs with mutable graph, example from fig 22.5, p544
+  ;;
+  (define g3 (make-graph))
+  (add-di-edge! g3 'y 'x)
+  (add-di-edge! g3 'x 'z)
+  (add-di-edge! g3 'z 'y)
+  (add-di-edge! g3 'z 'w)
+  (add-di-edge! g3 'w 'x)
+  (add-di-edge! g3 's 'z)
+  (add-di-edge! g3 's 'w)
+  (add-di-edge! g3 'v 's)
+  (add-di-edge! g3 'v 'w)
+  (add-di-edge! g3 't 'v)
+  (add-di-edge! g3 't 'u)
+  (add-di-edge! g3 'u 'v)
+  (add-di-edge! g3 'u 't)
+
+  (check-equal? 
+   g3 
+   (make-graph (y -> x) (x -> z) (z -> w) (s -> z) (v -> s) (t -> u) (u -> t)
+               (w -> x)          (z -> y) (s -> w) (v -> w) (t -> v) (u -> v)))
+  (check-equal? 
+   g3 
+   (make-graph (x <- y) (z <- x) (w <- z) (z <- s) (s <- v) (u <- t) (t <- u)
+               (x <- w)          (y <- z) (w <- s) (w <- v) (v <- t) (v <- u)))
+  
+  
+  (check-equal?
+   g3
+   (make-graph ((y (x)) (x (z)) (z (y w)) (w (x)) (s (z w)) (v (s w)) (t (v u)) (u (t v)))))
+  
+  (check-true (parens-thm? g3))
+
   )
