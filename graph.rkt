@@ -34,7 +34,7 @@
 (define-syntax (graph stx)
   (syntax-case stx (-- ->)
     [(_) #'(make-immutable-hash)]
-    [(_ v rest ...) (and (identifier? #'v) (printf "~a\n" (syntax->datum #'(_ v rest ...)))) #'(add-vertex (graph rest ...) 'v)]
+    [(_ v rest ...) (identifier? #'v) #'(add-vertex (graph rest ...) 'v)]
     [(_ (u -- v) rest ...) #'(add-edge    (graph rest ...) 'u 'v)]
     [(_ (u -> v) rest ...) #'(add-di-edge (graph rest ...) 'u 'v)]
     [(_ (u <- v) rest ...) #'(add-di-edge (graph rest ...) 'v 'u)]
@@ -46,7 +46,7 @@
 (define-syntax (make-graph stx)
   (syntax-case stx (-- ->)
     [(_) #'(make-hash)]
-    [(_ v rest ...) (and (identifier? #'v) (printf "~a\n" (syntax->datum #'(_ v rest ...)))) #'(graph->mutable (graph v rest ...))]
+    [(_ v rest ...) (identifier? #'v) #'(graph->mutable (graph v rest ...))]
     [(_ (u -- v) rest ...) #'(graph->mutable (graph (u -- v) rest ...))]
     [(_ (u -> v) rest ...) #'(graph->mutable (graph (u -> v) rest ...))]
     [(_ (u <- v) rest ...) #'(graph->mutable (graph (u <- v) rest ...))]
@@ -176,4 +176,5 @@
   (values color d f π tsorted)
   )
 
+;; result is invalid if g is not dag
 (define (tsort g) (match/values (dfs g) [(_ _ _ _ sorted) sorted]))

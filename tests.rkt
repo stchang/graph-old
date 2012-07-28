@@ -230,11 +230,16 @@
 
 
 ;; test tsort
+;; using thm 22.12 p551
 (module+ test
   (define clothes
     (make-graph (undershorts -> pants) (pants -> belt) (belt -> jacket)
                 (undershorts -> shoes) (pants -> shoes) (shirt -> belt)
                 (shirt -> tie) (tie -> jacket) (socks -> shoes) watch))
-  clothes
-  (tsort clothes)
+  (define (dfs-produces-tsort? g)
+    (define-values (colors d f π sorted) (dfs g))
+    (for*/and ([k (in-hash-keys g)]
+               [v (in-set (hash-ref g k))])
+      (< (hash-ref f v) (hash-ref f k))))
+  (dfs-produces-tsort? clothes)
   )
