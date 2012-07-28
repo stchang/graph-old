@@ -140,7 +140,7 @@
   ;(check-equal? (hash-keys g2) '(z u w x v y))
   (define (parens-thm? g)
     ; do dfs
-    (define-values (color d f π) (dfs g))
+    (define-values (color d f π sorted) (dfs g))
     (define keys (hash-keys g))
 
     ; predicates for parens thm
@@ -226,4 +226,15 @@
   
   (check-true (parens-thm? g3))
 
+  )
+
+
+;; test tsort
+(module+ test
+  (define clothes
+    (make-graph (undershorts -> pants) (pants -> belt) (belt -> jacket)
+                (undershorts -> shoes) (pants -> shoes) (shirt -> belt)
+                (shirt -> tie) (tie -> jacket) (socks -> shoes) watch))
+  clothes
+  (tsort clothes)
   )

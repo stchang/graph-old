@@ -2,8 +2,9 @@
 
 (require data/queue)
 
-(provide graph make-graph add-edge add-di-edge add-edge! add-di-edge! 
-         bfs dfs)
+(provide graph make-graph 
+         add-edge add-di-edge add-edge! add-di-edge! add-vertex add-vertex!
+         bfs dfs tsort)
 
 ;; TODO:
 ;; 2012-07-15
@@ -33,6 +34,7 @@
 (define-syntax (graph stx)
   (syntax-case stx (-- ->)
     [(_) #'(make-immutable-hash)]
+    [(_ v rest ...) (and (identifier? #'v) (printf "~a\n" (syntax->datum #'(_ v rest ...)))) #'(add-vertex (graph rest ...) 'v)]
     [(_ (u -- v) rest ...) #'(add-edge    (graph rest ...) 'u 'v)]
     [(_ (u -> v) rest ...) #'(add-di-edge (graph rest ...) 'u 'v)]
     [(_ (u <- v) rest ...) #'(add-di-edge (graph rest ...) 'v 'u)]
@@ -44,6 +46,7 @@
 (define-syntax (make-graph stx)
   (syntax-case stx (-- ->)
     [(_) #'(make-hash)]
+    [(_ v rest ...) (and (identifier? #'v) (printf "~a\n" (syntax->datum #'(_ v rest ...)))) #'(graph->mutable (graph v rest ...))]
     [(_ (u -- v) rest ...) #'(graph->mutable (graph (u -- v) rest ...))]
     [(_ (u -> v) rest ...) #'(graph->mutable (graph (u -> v) rest ...))]
     [(_ (u <- v) rest ...) #'(graph->mutable (graph (u <- v) rest ...))]
@@ -53,36 +56,51 @@
 
 (define (graph->mutable g)
   (define mut-g (make-graph))
-  (for* ([k (in-hash-keys g)]
-         [v (in-set (hash-ref g k))])
-    (add-di-edge! mut-g k v))
+  (for ([k (in-hash-keys g)])
+    (let ([vs (hash-ref g k)])
+      (if (set-empty? vs)
+          (add-vertex! mut-g k)
+          (for ([v (in-set (hash-ref g k))])
+            (add-di-edge! mut-g k v)))))
   mut-g)
     
 
+;; associate empty set with vertex v is it does not exist
+(define (add-vertex g v) (hash-update g v (λ (s) s) (set)))
+(define (add-vertex! g v) (hash-update! g v (λ (s) s) (set)))
+  
+;; add edge u -> v but dont try to add vertex v
+(define (add-di-edge-no-vertex-check g u v) 
+  (hash-update g u (λ (s) (set-add s v)) (set)))
+
 ;; add-di-edge : Graph Node Node -> Graph
 ;; add directed edge from u to v, functionally
+;; and make sure vertex v is in g
 (define (add-di-edge g u v)
   (define ht g #;(graph-ht g))
   #;(hash-set ht u (set-add (hash-ref ht u (set)) v))
-  (hash-update ht u (λ (s) (set-add s v)) (set)))
+  (add-vertex (add-di-edge-no-vertex-check g u v) v))
 
 ;; add-edge : Graph Node Node -> Graph
 ;; add edge from u to v, functionally
 (define (add-edge g u v)
-  (add-di-edge (add-di-edge g u v) v u))
+  (add-di-edge-no-vertex-check (add-di-edge g u v) v u))
+
+;; add edge u->v (imperatively) but dont try to add vertex v
+(define (add-di-edge!-no-vertex-check g u v)
+  (hash-update! g u (λ (s) (set-add s v)) (set)))
 
 ;; add-di-edge! : Graph Node Node -> void
 ;; add directed edge from u to v, imperatively
 (define (add-di-edge! g u v)
-  (define ht g #;(graph-ht g))
-  (hash-update! ht u (λ (s) (set-add s v)) (set))
-  #;(hash-set! ht u (set-add (hash-ref ht u (set)) v)))
+  (add-di-edge!-no-vertex-check g u v)
+  (add-vertex! g v))
 
 ;; add-edge! : Graph Node Node -> void
 ;; add edge from u to v, imperatively
 (define (add-edge! g u v)
   (add-di-edge! g u v)
-  (add-di-edge! g v u))
+  (add-di-edge!-no-vertex-check g v u))
 
 
 ;; Color is 'white or 'gray or 'black
@@ -131,6 +149,7 @@
   (define f (make-hash)) ;; f[v] = when search finishes v's adj list (v black)
   (define π (make-hash))
   (define time 0)
+  (define tsorted null)
   (define vertices (hash-keys g))
   ;; init
   (for ([u vertices])
@@ -151,7 +170,10 @@
             (VISIT v)))
         (hash-set! color u 'black)
         (set! time (add1 time))
+        (set! tsorted (cons u tsorted))
         (hash-set! f u time))))
   
-  (values color d f π)
+  (values color d f π tsorted)
   )
+
+(define (tsort g) (match/values (dfs g) [(_ _ _ _ sorted) sorted]))
