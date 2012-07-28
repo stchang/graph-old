@@ -138,7 +138,7 @@
 
   ;; this is here to see the ordering of nodes
   ;(check-equal? (hash-keys g2) '(z u w x v y))
-  (define (parens-thm? g)
+  (define (parens-thm? g [dfs dfs])
     ; do dfs
     (define-values (color d f π sorted) (dfs g))
     (define keys (hash-keys g))
@@ -170,26 +170,43 @@
     (and
      (equal? color (make-hash (map (λ (k) (cons k 'black)) keys)))
                                
-    ; testing these dont work because it depends on order returned by hash-keys
-    ;(equal? d (make-hash '((u . 3)  (v . 5) (x . 4) (y . 6) (w . 11) (z . 1))))
-    ;(equal? f (make-hash '((u . 10) (v . 8) (x . 9) (y . 7) (w . 12) (z . 2))))
-    ;(equal? π (make-hash '((u . #f) (v . x) (x . u) (y . v) (w . #f) (z . w))))
-    
-     ; but we can test "parenthesis theorem" (p543 thm 22.7)
+     ; "parenthesis theorem" (p543 thm 22.7)
      (for*/and ([u keys] [v keys])
-       ;(printf "[d[u],f[u]]=[~a,~a]\n" (hash-ref d u) (hash-ref f u))
-       ;(printf "[d[v],f[v]]=[~a,~a]\n" (hash-ref d v) (hash-ref f v))
        (or (equal? u v)
            (and (valid? u v)
                 (or (disjoint? u v)
                     (within? u v)
                     (within? v u))
-                (nesting? u v))))))
+                (nesting? u v))))))  
+      
+  (check-true (parens-thm? g2))
+  (check-true (parens-thm? g2 (λ (grph) 
+                               (dfs-with-sorting 
+                                grph string<? #:key symbol->string))))
   
-    
-  (check-true (parens-thm? g))
-
+  ;; check exact result of dfs-with-sorting on g2 
+  ;; (alphabetical order, like in book p542)
+  (let-values ([(colors d f π sorted) 
+                (dfs-with-sorting g2 string<? #:key symbol->string)])
+    (check-true
+     (for/and ([v (in-hash-values colors)])
+       (equal? v 'black)))
+    (check-equal? 
+     d
+     (make-graph 
+      '((v . 2) (w . 9) (y . 3) (u . 1) (x . 4) (z . 10))))
+    (check-equal?
+     f
+     (make-graph
+      '((u . 8) (w . 12) (x . 5) (v . 7) (y . 6) (z . 11))))
+    (check-equal?
+     π
+     (make-graph
+      '((v . u) (y . v) (x . y) (u . #f) (w . #f) (z . w))))
+    ;; sorted doesnt matter because g2 is not dag
+    (check-equal? sorted '(w z u v y x)))
   
+ 
   
   
   ;;
@@ -225,7 +242,29 @@
    (make-graph ((y (x)) (x (z)) (z (y w)) (w (x)) (s (z w)) (v (s w)) (t (v u)) (u (t v)))))
   
   (check-true (parens-thm? g3))
-
+  (check-true (parens-thm? g3 (λ (grph) (dfs-with-sorting grph string<? #:key symbol->string))))
+  
+  ;; check exact result of dfs-with-sorting on g3
+  ;; (alphabetical order)
+  (let-values ([(colors d f π sorted) 
+                (dfs-with-sorting g3 string<? #:key symbol->string)])
+    (check-true
+     (for/and ([v (in-hash-values colors)])
+       (equal? v 'black)))
+    (check-equal? 
+     d
+     (make-graph 
+      '((u . 12) (w . 2) (z . 4) (v . 13) (s . 1) (y . 5) (t . 11) (x . 3))))
+    (check-equal?
+     f
+     (make-graph
+      '((v . 14) (w . 9) (z . 7) (u . 15) (s . 10) (x . 8) (t . 16) (y . 6))))
+    (check-equal?
+     π
+     (make-graph
+      '((v . u) (w . s) (z . x) (u . t) (s . #f) (x . w) (t . #f) (y . z))))
+    ;; sorted doesnt matter because g3 is not dag
+    (check-equal? sorted '(t u v s w x z y)))
   )
 
 
@@ -236,10 +275,20 @@
     (make-graph (undershorts -> pants) (pants -> belt) (belt -> jacket)
                 (undershorts -> shoes) (pants -> shoes) (shirt -> belt)
                 (shirt -> tie) (tie -> jacket) (socks -> shoes) watch))
-  (define (dfs-produces-tsort? g)
+  (define (dfs-produces-tsorted? g [dfs dfs])
     (define-values (colors d f π sorted) (dfs g))
-    (for*/and ([k (in-hash-keys g)]
-               [v (in-set (hash-ref g k))])
+    (for*/and ([(k vs) (in-hash g)]
+               [v (in-set vs)])
       (< (hash-ref f v) (hash-ref f k))))
-  (dfs-produces-tsort? clothes)
+  (check-true (dfs-produces-tsorted? clothes))
+  (check-true 
+   (dfs-produces-tsorted? 
+    clothes
+    (λ (g) (dfs-with-sorting g string<? #:key symbol->string))))
   )
+
+;; todo:
+;; add descendant? fn and use it instead of currently defined fn in this file
+;; add tsorted? fn and fix tests
+;; impl graph as struct, but add printing property so it displays the hash
+;; start documentation

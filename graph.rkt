@@ -4,7 +4,7 @@
 
 (provide graph make-graph 
          add-edge add-di-edge add-edge! add-di-edge! add-vertex add-vertex!
-         bfs dfs tsort)
+         bfs dfs dfs-with-sorting tsort)
 
 ;; TODO:
 ;; 2012-07-15
@@ -56,12 +56,11 @@
 
 (define (graph->mutable g)
   (define mut-g (make-graph))
-  (for ([k (in-hash-keys g)])
-    (let ([vs (hash-ref g k)])
-      (if (set-empty? vs)
-          (add-vertex! mut-g k)
-          (for ([v (in-set (hash-ref g k))])
-            (add-di-edge! mut-g k v)))))
+  (for ([(k vs) (in-hash g)])
+    (if (set-empty? vs)
+        (add-vertex! mut-g k)
+        (for ([v (in-set vs)])
+          (add-di-edge! mut-g k v))))
   mut-g)
     
 
@@ -176,5 +175,43 @@
   (values color d f π tsorted)
   )
 
+;; Performs depth-first search on graph g
+;; algorithm from p541 CLRS2e
+;; do extra sorting on order of vertices
+;; args are the same args to sort fn
+(define (dfs-with-sorting g lt #:key [extract-key (λ (x) x)] #:cache-keys? [cache-keys? #f])
+  (define color (make-hash))
+  ;; d and f map vertices to timestamps
+  (define d (make-hash)) ;; d[v] = when vertex v discovered (v gray)
+  (define f (make-hash)) ;; f[v] = when search finishes v's adj list (v black)
+  (define π (make-hash))
+  (define time 0)
+  (define tsorted null)
+  (define vertices (sort (hash-keys g) lt #:key extract-key #:cache-keys? cache-keys?))
+  ;; init
+  (for ([u vertices])
+    (hash-set! color u 'white)
+    (hash-set! π u #f))
+  
+  ;; do search
+  (for ([u vertices])
+    (when (eq? (hash-ref color u) 'white)
+      ;; visit vertex u
+      (let VISIT ([u u])
+        (hash-set! color u 'gray)
+        (set! time (add1 time))
+        (hash-set! d u time)
+        (for ([v (sort (set->list (hash-ref g u)) lt #:key extract-key #:cache-keys? cache-keys?)])
+          (when (eq? (hash-ref color v) 'white)
+            (hash-set! π v u)
+            (VISIT v)))
+        (hash-set! color u 'black)
+        (set! time (add1 time))
+        (set! tsorted (cons u tsorted))
+        (hash-set! f u time))))
+  
+  (values color d f π tsorted)
+  )
+
 ;; result is invalid if g is not dag
-(define (tsort g) (match/values (dfs g) [(_ _ _ _ sorted) sorted]))
+(define (tsort g [dfs dfs]) (match/values (dfs g) [(_ _ _ _ sorted) sorted]))
