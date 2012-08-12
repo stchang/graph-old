@@ -36,6 +36,9 @@
             (w . ,(set 'x 't 's)) (t . ,(set 'w 'x 'u)) (x . ,(set 'w 't 'y 'u))
             (u . ,(set 'y 'x 't)) (y . ,(set 'x 'u)))))
   
+  ;; g1 not dag because it's undirected
+  (check-false (dag? g1))
+  
   ;; check bfs result
   (let-values ([(color dist π) (bfs g1 's)])
     (check-equal? 
@@ -83,6 +86,8 @@
                      (cons 's (set 'r 'w))    (cons 'w (set 'x 't 's))
                      (cons 't (set 'w 'x 'u)) (cons 'x (set 'w 't 'y 'u))
                      (cons 'u (set 'y 'x 't)) (cons 'y (set 'x 'u)))))
+  
+  (check-false (dag? g))
   
   ;; check bfs result
   (let-values ([(color dist π) (bfs g 's)])
@@ -135,7 +140,8 @@
    g2
    (make-graph ((x (v)) (u (v x)) (v (y)) (y (x)) (w (y z)) (z (z)))))
   
-
+  (check-false (dag? g2))
+  
   ;; this is here to see the ordering of nodes
   ;(check-equal? (hash-keys g2) '(z u w x v y))
   (define (parens-thm? g [dfs dfs])
@@ -148,6 +154,9 @@
       (and (< (hash-ref d u) (hash-ref f u))
            (< (hash-ref d v) (hash-ref f v))))
     ;; true if u is a descendant of v
+    ;; NB: this function only determines "descendants" according to π from dfs
+    ;; It's not the same as saying there is a path from v to u
+    ;; It may be the case that there is a path but descendant? is false.
     (define (descendant? u v)
       (and u
            (or (equal? (hash-ref π u) v)
@@ -241,6 +250,8 @@
    g3
    (make-graph ((y (x)) (x (z)) (z (y w)) (w (x)) (s (z w)) (v (s w)) (t (v u)) (u (t v)))))
   
+  (check-false (dag? g3))
+  
   (check-true (parens-thm? g3))
   (check-true (parens-thm? g3 (λ (grph) (dfs-with-sorting grph string<? #:key symbol->string))))
   
@@ -275,6 +286,9 @@
     (make-graph (undershorts -> pants) (pants -> belt) (belt -> jacket)
                 (undershorts -> shoes) (pants -> shoes) (shirt -> belt)
                 (shirt -> tie) (tie -> jacket) (socks -> shoes) watch))
+  
+  (check-true (dag? clothes))
+              
   (define (dfs-produces-tsorted? g [dfs dfs])
     (define-values (colors d f π sorted) (dfs g))
     (for*/and ([(k vs) (in-hash g)]
@@ -288,7 +302,9 @@
   )
 
 ;; todo:
-;; add descendant? fn and use it instead of currently defined fn in this file
+;; add dag? pred - DONE 2012-08-12
 ;; add tsorted? fn and fix tests
+;; add dfs example from fig 22.6
+;; add tsort example from fig 22.8
 ;; impl graph as struct, but add printing property so it displays the hash
 ;; start documentation

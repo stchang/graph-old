@@ -4,12 +4,17 @@
 
 (provide graph make-graph 
          add-edge add-di-edge add-edge! add-di-edge! add-vertex add-vertex!
-         bfs dfs dfs-with-sorting tsort)
+         bfs dfs dfs-with-sorting tsort dag?)
 
 ;; TODO:
 ;; 2012-07-15
 ;; o) wrap hash table in graph struct
 ;; o) add grapheq and grapheqv versions corresponding to hasheq and hasheqv
+;; 2012-07-28
+;; x) add dag? pred - DONE 2012-08-12
+;; 2012-08-12
+;; o) generalize dfs and bfs
+;;    - for example, dag? has code copied from dfs
 
 ; 2012-07-15: not used -- graph is currently a hash table
 #;(define-struct graph (ht)
@@ -141,6 +146,8 @@
 
 ;; Performs depth-first search on graph g
 ;; algorithm from p541 CLRS2e
+;; Alternative (functional) dfs algorithm uses a "seen" list/set
+;;  but this adds O(n), n = # vertices, at every step to check the seen list
 (define (dfs g)
   (define color (make-hash))
   ;; d and f map vertices to timestamps
@@ -213,5 +220,54 @@
   (values color d f π tsorted)
   )
 
+;; true if there is a path from u to v in g
+#;(define (path? g u v)
+  (let LOOP ([u u] [seen (set u)])
+    (or (equal? u v)
+        (for/or ([x (in-set (hash-ref g u))])
+          (and (not (set-member? seen x))
+               (LOOP x (set-add seen x)))))))
+
+;; true if g is a directed acyclic graph (dag)
+;; (this is mostly copied from dfs -- without some of the result sets)
+(define (dag? g)
+  (define color (make-hash))
+  ;; d and f map vertices to timestamps
+;  (define d (make-hash)) ;; d[v] = when vertex v discovered (v gray)
+;  (define f (make-hash)) ;; f[v] = when search finishes v's adj list (v black)
+;  (define π (make-hash))
+;  (define time 0)
+;  (define tsorted null)
+  (define vertices (hash-keys g))
+  ;; init
+  (for ([u vertices])
+    (hash-set! color u 'white)
+    #;(hash-set! π u #f))
+  
+  ;; do search
+  (for/and ([u vertices])
+    (if (eq? (hash-ref color u) 'white)
+      ;; visit vertex u
+      (let VISIT ([u u])
+        (hash-set! color u 'gray)
+;        (set! time (add1 time))
+;        (hash-set! d u time)
+        (begin0
+        (for/and ([v (in-set (hash-ref g u))])
+          (cond [(eq? (hash-ref color v) 'white) ; white = tree edge = ok
+;                (hash-set! π v u)
+                 (VISIT v)]
+                [(eq? (hash-ref color v) 'gray) #f] ; gray = back edge = cycle
+                [else #t]
+                ))
+        (hash-set! color u 'black))
+;        (set! time (add1 time))
+;        (set! tsorted (cons u tsorted))
+        #;(hash-set! f u time))
+      #t)) ; if not white, then there are vacuously no cycles from this node
+  
+;  (values color d f π tsorted)
+  )
+  
 ;; result is invalid if g is not dag
 (define (tsort g [dfs dfs]) (match/values (dfs g) [(_ _ _ _ sorted) sorted]))
