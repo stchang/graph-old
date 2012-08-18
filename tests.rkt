@@ -279,31 +279,9 @@
   )
 
 
-;; test tsort
-;; using thm 22.12 p551
-(module+ test
-  (define clothes
-    (make-graph (undershorts -> pants) (pants -> belt) (belt -> jacket)
-                (undershorts -> shoes) (pants -> shoes) (shirt -> belt)
-                (shirt -> tie) (tie -> jacket) (socks -> shoes) watch))
-  
-  (check-true (dag? clothes))
-              
-  (define (dfs-produces-tsorted? g [dfs dfs])
-    (define-values (colors d f π sorted) (dfs g))
-    (for*/and ([(k vs) (in-hash g)]
-               [v (in-set vs)])
-      (< (hash-ref f v) (hash-ref f k))))
-  (check-true (dfs-produces-tsorted? clothes))
-  (check-true 
-   (dfs-produces-tsorted? 
-    clothes
-    (λ (g) (dfs-with-sorting g string<? #:key symbol->string))))
-  )
+
 
 ;; todo:
-;; add dag? pred - DONE 2012-08-12
-;; add tsorted? fn and fix tests
 ;; add dfs example from fig 22.6
 ;; add tsort example from fig 22.8
 ;; impl graph as struct, but add printing property so it displays the hash

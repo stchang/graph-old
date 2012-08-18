@@ -4,7 +4,7 @@
 
 (provide graph make-graph 
          add-edge add-di-edge add-edge! add-di-edge! add-vertex add-vertex!
-         bfs dfs dfs-with-sorting tsort dag?)
+         bfs dfs dfs-with-sorting tsort dag? tsorted?)
 
 ;; TODO:
 ;; 2012-07-15
@@ -12,9 +12,15 @@
 ;; o) add grapheq and grapheqv versions corresponding to hasheq and hasheqv
 ;; 2012-07-28
 ;; x) add dag? pred - DONE 2012-08-12
+;; x) add tsorted? pred - DONE 2012-08-17
+;; x) add graph-fold-dfs - DONE 2012-08-17
 ;; 2012-08-12
 ;; o) generalize dfs and bfs
 ;;    - for example, dag? has code copied from dfs
+;; 2012-08-17
+;; o) abstract dfs, dfs-with-sorting, graph-fold-dfs, dag?, etc
+;;    to get rid of code duplication
+;; o) impl path? with bfs
 
 ; 2012-07-15: not used -- graph is currently a hash table
 #;(define-struct graph (ht)
@@ -182,6 +188,45 @@
   (values color d f π tsorted)
   )
 
+;; graph-fold-dfs
+;; folds over a graph, where the vertices are traversed in dfs order
+;; code copied from dfs
+(define (graph-fold-dfs g f base)
+  (define color (make-hash))
+  ;; d and f map vertices to timestamps
+;  (define d (make-hash)) ;; d[v] = when vertex v discovered (v gray)
+;  (define f (make-hash)) ;; f[v] = when search finishes v's adj list (v black)
+;  (define π (make-hash))
+;  (define time 0)
+  (define result base)
+  (define vertices (hash-keys g))
+  ;; init
+  (for ([u vertices])
+    (hash-set! color u 'white)
+;    (hash-set! π u #f)
+    )
+  
+  ;; do search
+  (for ([u vertices])
+    (when (eq? (hash-ref color u) 'white)
+      ;; visit vertex u
+      (let VISIT ([u u])
+        (hash-set! color u 'gray)
+;        (set! time (add1 time))
+;        (hash-set! d u time)
+        (for ([v (in-set (hash-ref g u))])
+          (when (eq? (hash-ref color v) 'white)
+;            (hash-set! π v u)
+            (VISIT v)))
+        (hash-set! color u 'black)
+;        (set! time (add1 time))
+        (set! result (f u result))
+;        (hash-set! f u time)
+        )))
+  
+  result
+  )
+
 ;; Performs depth-first search on graph g
 ;; algorithm from p541 CLRS2e
 ;; do extra sorting on order of vertices
@@ -220,13 +265,28 @@
   (values color d f π tsorted)
   )
 
+;; should be able to use bfs to impl
 ;; true if there is a path from u to v in g
-#;(define (path? g u v)
+(define (path? g u v)
   (let LOOP ([u u] [seen (set u)])
     (or (equal? u v)
         (for/or ([x (in-set (hash-ref g u))])
           (and (not (set-member? seen x))
                (LOOP x (set-add seen x)))))))
+
+(define (tails lst)
+  (if (null? lst)
+      (list null)
+      (cons lst (tails (rest lst)))))
+;; returns true if sorted-vs is a list of vertices in g in tsorted order
+;; assumes g is a dag
+(define (tsorted? g sorted-vs)
+    (if (null? sorted-vs)
+      true
+      (and (let ([u (first sorted-vs)])
+             (for/and ([v (rest sorted-vs)])
+               (not (path? g v u))))
+           (tsorted? g (rest sorted-vs)))))
 
 ;; true if g is a directed acyclic graph (dag)
 ;; (this is mostly copied from dfs -- without some of the result sets)
@@ -270,4 +330,5 @@
   )
   
 ;; result is invalid if g is not dag
-(define (tsort g [dfs dfs]) (match/values (dfs g) [(_ _ _ _ sorted) sorted]))
+;;(define (tsort g [dfs dfs]) (match/values (dfs g) [(_ _ _ _ sorted) sorted]))
+(define (tsort g [dfs graph-fold-dfs]) (dfs g (λ (v acc) (cons v acc)) null))
