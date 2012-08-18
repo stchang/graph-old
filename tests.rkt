@@ -146,7 +146,7 @@
   ;(check-equal? (hash-keys g2) '(z u w x v y))
   (define (parens-thm? g [dfs dfs])
     ; do dfs
-    (define-values (color d f π sorted) (dfs g))
+    (define-values (color d f π) (dfs g))
     (define keys (hash-keys g))
 
     ; predicates for parens thm
@@ -195,7 +195,7 @@
   
   ;; check exact result of dfs-with-sorting on g2 
   ;; (alphabetical order, like in book p542)
-  (let-values ([(colors d f π sorted) 
+  (let-values ([(colors d f π) 
                 (dfs-with-sorting g2 string<? #:key symbol->string)])
     (check-true
      (for/and ([v (in-hash-values colors)])
@@ -213,7 +213,8 @@
      (make-graph
       '((v . u) (y . v) (x . y) (u . #f) (w . #f) (z . w))))
     ;; sorted doesnt matter because g2 is not dag
-    (check-equal? sorted '(w z u v y x)))
+;    (check-equal? sorted '(w z u v y x))
+    )
   
  
   
@@ -257,7 +258,7 @@
   
   ;; check exact result of dfs-with-sorting on g3
   ;; (alphabetical order)
-  (let-values ([(colors d f π sorted) 
+  (let-values ([(colors d f π) 
                 (dfs-with-sorting g3 string<? #:key symbol->string)])
     (check-true
      (for/and ([v (in-hash-values colors)])
@@ -275,7 +276,8 @@
      (make-graph
       '((v . u) (w . s) (z . x) (u . t) (s . #f) (x . w) (t . #f) (y . z))))
     ;; sorted doesnt matter because g3 is not dag
-    (check-equal? sorted '(t u v s w x z y)))
+;    (check-equal? sorted '(t u v s w x z y))
+    )
   )
 
 

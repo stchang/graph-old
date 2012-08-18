@@ -4,7 +4,7 @@
 
 (provide graph make-graph 
          add-edge add-di-edge add-edge! add-di-edge! add-vertex add-vertex!
-         bfs dfs dfs-with-sorting tsort dag? tsorted?)
+         bfs dfs dfs-with-sorting tsort dag? tsorted? transpose scc)
 
 ;; TODO:
 ;; 2012-07-15
@@ -21,6 +21,7 @@
 ;; o) abstract dfs, dfs-with-sorting, graph-fold-dfs, dag?, etc
 ;;    to get rid of code duplication
 ;; o) impl path? with bfs
+;; o) finish impl scc -- extract sccs from π2
 
 ; 2012-07-15: not used -- graph is currently a hash table
 #;(define-struct graph (ht)
@@ -161,7 +162,7 @@
   (define f (make-hash)) ;; f[v] = when search finishes v's adj list (v black)
   (define π (make-hash))
   (define time 0)
-  (define tsorted null)
+;  (define tsorted null)
   (define vertices (hash-keys g))
   ;; init
   (for ([u vertices])
@@ -182,10 +183,10 @@
             (VISIT v)))
         (hash-set! color u 'black)
         (set! time (add1 time))
-        (set! tsorted (cons u tsorted))
+;        (set! tsorted (cons u tsorted))
         (hash-set! f u time))))
   
-  (values color d f π tsorted)
+  (values color d f π)
   )
 
 ;; graph-fold-dfs
@@ -238,7 +239,7 @@
   (define f (make-hash)) ;; f[v] = when search finishes v's adj list (v black)
   (define π (make-hash))
   (define time 0)
-  (define tsorted null)
+;  (define tsorted null)
   (define vertices (sort (hash-keys g) lt #:key extract-key #:cache-keys? cache-keys?))
   ;; init
   (for ([u vertices])
@@ -259,10 +260,10 @@
             (VISIT v)))
         (hash-set! color u 'black)
         (set! time (add1 time))
-        (set! tsorted (cons u tsorted))
+;        (set! tsorted (cons u tsorted))
         (hash-set! f u time))))
   
-  (values color d f π tsorted)
+  (values color d f π)
   )
 
 ;; should be able to use bfs to impl
@@ -332,3 +333,24 @@
 ;; result is invalid if g is not dag
 ;;(define (tsort g [dfs dfs]) (match/values (dfs g) [(_ _ _ _ sorted) sorted]))
 (define (tsort g [dfs graph-fold-dfs]) (dfs g (λ (v acc) (cons v acc)) null))
+
+;; if g = (V,E), then (transpose g) = g' = (V,E'), where E' = {(u,v)|(v,u)∈E}
+;; running time O(V+E)
+(define (transpose g)
+  (cond [(immutable? g)
+         (for/fold ([new-g (graph)]) ([(u vs) (in-hash g)])
+           (for/fold ([new-g (add-vertex new-g u)]) ([v vs])
+             (add-di-edge-no-vertex-check new-g v u)))]
+        [else
+         (define new-g (make-graph))
+         (for ([(u vs) (in-hash g)])
+           (add-vertex! new-g u)
+           (for ([v vs])
+             (add-di-edge!-no-vertex-check new-g v u)))]))
+
+(define (scc g)
+  (define-values (color1 d1 f1 π1) (dfs g))
+  (define-values (color2 d2 f2 π2) 
+    (dfs-with-sorting (transpose g)
+                      (λ (u v) (> (hash-ref f1 u) (hash-ref f1 v)))))
+  π2)
