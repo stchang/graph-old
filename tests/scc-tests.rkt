@@ -26,3 +26,5 @@
         (g <- f) (g <- h)
         (h <- h)
         i j))
+
+(check-equal? (scc g) '((h) (f g) (c d) (a e b)))

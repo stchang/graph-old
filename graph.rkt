@@ -4,7 +4,8 @@
 
 (provide graph make-graph 
          add-edge add-di-edge add-edge! add-di-edge! add-vertex add-vertex!
-         bfs dfs dfs-with-sorting tsort dag? tsorted? transpose scc)
+         get-neighbors get-vertices
+         bfs dfs dfs-with-sorting tsort dag? tsorted? transpose scc print-π)
 
 ;; TODO:
 ;; 2012-07-15
@@ -30,6 +31,9 @@
 ; 2012-07-15: not used -- graph is currently a hash table
 #;(define-struct graph (ht)
   #:omit-define-syntaxes)
+
+(define (get-neighbors g v) (hash-ref g v))
+(define (get-vertices g) (hash-keys g))
 
 ;; macro to make macro definition of graph
 ;; allows using immutable or mutable hashes
@@ -201,7 +205,6 @@
 ;; graph-fold-dfs
 ;; folds over a graph, where the vertices are traversed in dfs order
 ;; code copied from dfs
-;; should be 3 separate f parameters: before-visit, during-visit, and after-visit
 (define (graph-fold-dfs g f base)
   (define color (make-hash))
   ;; d and f map vertices to timestamps
@@ -210,7 +213,7 @@
 ;  (define π (make-hash))
 ;  (define time 0)
   (define result base)
-  (define vertices (hash-keys g))
+  (define vertices (get-vertices g))
   ;; init
   (for ([u vertices])
     (hash-set! color u 'white)
@@ -236,6 +239,53 @@
         )))
   
   result
+  )
+
+;; graph-fold-dfs-with-sorted
+;; folds over a graph, where the vertices are traversed in dfs order
+;; when doing dfs, consider vertices in given sorted order
+;; code copied from graph-fold-dfs
+(define (graph-fold-dfs-with-sorted 
+         g sorted-vs 
+;         visit-start-fn visit-start-base ; during visit, before recur
+         visit-end-fn visit-end-base ; during visit, after recur
+         [post-visit-fn (λ (x y) y)] [post-visit-base #f]) ; after visit
+                                      
+  (define color (make-hash))
+  ;; d and f map vertices to timestamps
+;  (define d (make-hash)) ;; d[v] = when vertex v discovered (v gray)
+;  (define f (make-hash)) ;; f[v] = when search finishes v's adj list (v black)
+;  (define π (make-hash))
+;  (define time 0)
+  (define visit-end-result visit-end-base)
+  (define result post-visit-base)
+  ;; init
+  (for ([u sorted-vs])
+    (hash-set! color u 'white)
+;    (hash-set! π u #f)
+    )
+  
+  ;; do search
+  (for ([u sorted-vs])
+    (when (eq? (hash-ref color u) 'white)
+      ;; visit vertex u
+      (let VISIT ([u u])
+        (hash-set! color u 'gray)
+;        (set! time (add1 time))
+;        (hash-set! d u time)
+        (for ([v (in-set (hash-ref g u))])
+          (when (eq? (hash-ref color v) 'white)
+;            (hash-set! π v u)
+            (VISIT v)))
+        (hash-set! color u 'black)
+;        (set! time (add1 time))
+        (set! visit-end-result (visit-end-fn u visit-end-result))
+;        (hash-set! f u time)
+        )
+      (set! result (post-visit-fn visit-end-result result))
+      (set! visit-end-result visit-end-base)
+      ))
+  (if post-visit-base result visit-end-result)
   )
 
 ;; traverses g in dfs order, starting with s
@@ -376,7 +426,7 @@
   
 ;; result is invalid if g is not dag
 ;;(define (tsort g [dfs dfs]) (match/values (dfs g) [(_ _ _ _ sorted) sorted]))
-(define (tsort g [dfs graph-fold-dfs]) (dfs g (λ (v acc) (cons v acc)) null))
+(define (tsort g [dfs graph-fold-dfs]) (dfs g cons null))
 
 ;; if g = (V,E), then (transpose g) = g' = (V,E'), where E' = {(u,v)|(v,u)∈E}
 ;; running time O(V+E)
@@ -393,8 +443,12 @@
              (add-di-edge!-no-vertex-check new-g v u)))]))
 
 (define (scc g)
-  (define-values (color1 d1 f1 π1) (dfs g))
-  (define-values (color2 d2 f2 π2) 
-    (dfs-with-sorting (transpose g)
-                      (λ (u v) (> (hash-ref f1 u) (hash-ref f1 v)))))
-  π2)
+  (define f (graph-fold-dfs g cons null))
+  (graph-fold-dfs-with-sorted (transpose g) f cons null cons null)
+  )
+
+
+(define (print-π π s)
+  (printf "~a " s)
+  (let ([next (hash-ref π s)])
+    (when next (print-π π next))))
