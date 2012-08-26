@@ -22,6 +22,10 @@
 ;;    to get rid of code duplication
 ;; o) impl path? with bfs
 ;; o) finish impl scc -- extract sccs from π2
+;; 2012-08-25
+;; o) add dfs-single, which starts from one node, and only traverses
+;;    nodes connected to that node
+;; o) graph-ormap-dfs should be graph-ormap-dfs-single
 
 ; 2012-07-15: not used -- graph is currently a hash table
 #;(define-struct graph (ht)
@@ -122,6 +126,9 @@
 ;;                             [HashOf (Node -> Node)])
 ;; algorithm from p532 CLRS2e
 (define (bfs g s)
+  ;; white = unseen
+  ;; black = seen and done checking neighbors
+  ;; gray = seen but have not checked neighbors (in the queue)
   (define color (make-hash))
   (define dist (make-hash))
   (define π (make-hash))
@@ -149,6 +156,8 @@
           (hash-set! π v u)
           (enqueue! Q v)))
       (hash-set! color u 'black))))
+
+
 
 
 ;; Performs depth-first search on graph g
@@ -192,6 +201,7 @@
 ;; graph-fold-dfs
 ;; folds over a graph, where the vertices are traversed in dfs order
 ;; code copied from dfs
+;; should be 3 separate f parameters: before-visit, during-visit, and after-visit
 (define (graph-fold-dfs g f base)
   (define color (make-hash))
   ;; d and f map vertices to timestamps
@@ -227,6 +237,49 @@
   
   result
   )
+
+;; traverses g in dfs order, starting with s
+;; applies predicate p? to each node, stopping at first true result
+;; returns true at least one true is found, false otherwise
+;; (code copied from dfs, but really there should be a dfs-single that only
+;;  starts from a single node and traverses connected nodes)
+(define (graph-ormap-dfs g p? s)
+  (define color (make-hash))
+  ;; d and f map vertices to timestamps
+;  (define d (make-hash)) ;; d[v] = when vertex v discovered (v gray)
+;  (define f (make-hash)) ;; f[v] = when search finishes v's adj list (v black)
+;  (define π (make-hash))
+;  (define time 0)
+  (define vertices (hash-keys g))
+  ;; init
+  (for ([u vertices])
+    (hash-set! color u 'white)
+;    (hash-set! π u #f)
+    )
+  
+  (let VISIT ([u s])
+    (hash-set! color u 'gray)
+;        (set! time (add1 time))
+;        (hash-set! d u time)
+    (for/or ([v (in-set (hash-ref g u))])
+      (or (p? v)
+          (and (eq? (hash-ref color v) 'white)
+;            (hash-set! π v u)
+               (VISIT v)))))
+;    (hash-set! color u 'black)
+;        (set! time (add1 time))
+;        (hash-set! f u time)
+    )
+
+;; should be able to use dfs to impl
+;; true if there is a path from u to v in g
+(define (path? g u v)
+  (graph-ormap-dfs g (λ (x) (equal? x v)) u)
+  #;(let LOOP ([u u] [seen (set u)])
+    (or (equal? u v)
+        (for/or ([x (in-set (hash-ref g u))])
+          (and (not (set-member? seen x))
+               (LOOP x (set-add seen x)))))))
 
 ;; Performs depth-first search on graph g
 ;; algorithm from p541 CLRS2e
@@ -265,15 +318,6 @@
   
   (values color d f π)
   )
-
-;; should be able to use bfs to impl
-;; true if there is a path from u to v in g
-(define (path? g u v)
-  (let LOOP ([u u] [seen (set u)])
-    (or (equal? u v)
-        (for/or ([x (in-set (hash-ref g u))])
-          (and (not (set-member? seen x))
-               (LOOP x (set-add seen x)))))))
 
 (define (tails lst)
   (if (null? lst)

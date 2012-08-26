@@ -15,7 +15,7 @@
 (check-true (dag? clothes))
 
 (define (dfs-produces-tsorted? g [dfs dfs])
-  (define-values (colors d f π sorted) (dfs g))
+  (define-values (colors d f π) (dfs g))
   (for*/and ([(k vs) (in-hash g)]
              [v (in-set vs)])
     (< (hash-ref f v) (hash-ref f k))))
