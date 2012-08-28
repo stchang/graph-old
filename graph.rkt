@@ -2,7 +2,7 @@
 
 (require data/queue)
 
-(provide graph make-graph 
+(provide graph weighted-graph make-graph 
          add-edge add-di-edge add-edge! add-di-edge! add-vertex add-vertex!
          get-neighbors get-vertices
          bfs dfs dfs-with-sorting tsort dag? tsorted? transpose scc print-π)
@@ -35,24 +35,10 @@
 (define (get-neighbors g v) (hash-ref g v))
 (define (get-vertices g) (hash-keys g))
 
-;; macro to make macro definition of graph
-;; allows using immutable or mutable hashes
-#;(define-syntax (make-graph-definition stx)
-  (syntax-case stx ()
-    [(_ mk-graph hash-fn add-edge add-di-edge)
-     #'(define-syntax (mk-graph stx)
-         (syntax-case stx (-- ->)
-           [(_) #'(hash-fn)]
-           [(_ (u -- v) rest (... ...)) #'(add-edge    (mk-graph rest (... ...)) 'u 'v)]
-           [(_ (u -> v) rest (... ...)) #'(add-di-edge (mk-graph rest (... ...)) 'u 'v)]
-           [(_ (u <- v) rest (... ...)) #'(add-di-edge (mk-graph rest (... ...)) 'v 'u)]
-           [(_ ((u (v (... ...))) (... ...))) 
-            #'(hash-fn (list (cons 'u (apply set '(v (... ...)))) (... ...)))]
-           [(_ assocs) #'(hash-fn assocs)]))]))
 
 ; graph is a immutable hash table -- in the future wrap the ht with a struct
 (define-syntax (graph stx)
-  (syntax-case stx (-- ->)
+  (syntax-case stx (-- -> <-)
     [(_) #'(make-immutable-hash)]
     [(_ v rest ...) (identifier? #'v) #'(add-vertex (graph rest ...) 'v)]
     [(_ (u -- v) rest ...) #'(add-edge    (graph rest ...) 'u 'v)]
@@ -62,9 +48,31 @@
      #'(make-immutable-hash (list (cons 'u (apply set '(v ...))) ...))]
     [(_ assocs) #'(make-immutable-hash assocs)]))
 
+; weighted-graph (copied from graph): uses immutable hash table
+(define-syntax (weighted-graph stx)
+  (define (get-undirected-edge-weight e)
+    (regexp-match 
+      (regexp "(?<=^--)[0-9]+(?=--$)")
+      (symbol->string (syntax->datum e))))
+  (syntax-case stx (-- -> <-)
+    [(_) #'(make-immutable-hash)]
+    [(_ v rest ...) (identifier? #'v) #'(add-vertex (graph rest ...) 'v)]
+    [(_ (u --w-- v) rest ...)
+     (get-undirected-edge-weight #'--w--)
+     (let ([w (regexp-match 
+               (regexp "(?<=^--)[0-9]+(?=--$)")
+               (symbol->string (syntax->datum #'--w--)))])
+       (with-syntax ([(w) (datum->syntax #'--w-- w)])
+       #'(add-weighted-edge (weighted-graph rest ...) 'u 'v w)))]
+    [(_ (u -> v) rest ...) #'(add-di-edge (graph rest ...) 'u 'v)]
+    [(_ (u <- v) rest ...) #'(add-di-edge (graph rest ...) 'v 'u)]
+    [(_ ((u (v ...)) ...)) 
+     #'(make-immutable-hash (list (cons 'u (apply set '(v ...))) ...))]
+    [(_ assocs) #'(make-immutable-hash assocs)]))
+
 ; make graph with mutable hash table
 (define-syntax (make-graph stx)
-  (syntax-case stx (-- ->)
+  (syntax-case stx (-- -> <-)
     [(_) #'(make-hash)]
     [(_ v rest ...) (identifier? #'v) #'(graph->mutable (graph v rest ...))]
     [(_ (u -- v) rest ...) #'(graph->mutable (graph (u -- v) rest ...))]
@@ -104,6 +112,13 @@
 ;; add edge from u to v, functionally
 (define (add-edge g u v)
   (add-di-edge-no-vertex-check (add-di-edge g u v) v u))
+
+(define (add-weighted-di-edge g u v w)
+  (add-vertex (add-weighted-di-edge-no-vertex-check g u v w) v))
+(define (add-weighted-di-edge-no-vertex-check g u v w)
+  (hash-update g u (λ (s) (set-add s (cons v w))) (set)))
+(define (add-weighted-edge g u v w)
+  (add-weighted-di-edge-no-vertex-check (add-weighted-di-edge g u v w) v u w))
 
 ;; add edge u->v (imperatively) but dont try to add vertex v
 (define (add-di-edge!-no-vertex-check g u v)
