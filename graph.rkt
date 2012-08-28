@@ -4,6 +4,7 @@
 
 (provide graph weighted-graph make-graph 
          add-edge add-di-edge add-edge! add-di-edge! add-vertex add-vertex!
+         add-weighted-edge
          get-neighbors get-vertices
          bfs dfs dfs-with-sorting tsort dag? tsorted? transpose scc print-π)
 
@@ -52,17 +53,19 @@
 (define-syntax (weighted-graph stx)
   (define (get-undirected-edge-weight e)
     (regexp-match 
-      (regexp "(?<=^--)[0-9]+(?=--$)")
-      (symbol->string (syntax->datum e))))
-  (syntax-case stx (-- -> <-)
+     (regexp "(?<=^--)[0-9]+(?=--$)")
+     (symbol->string (syntax->datum e))))
+  (syntax-case stx (-> <-)
     [(_) #'(make-immutable-hash)]
     [(_ v rest ...) (identifier? #'v) #'(add-vertex (graph rest ...) 'v)]
     [(_ (u --w-- v) rest ...)
      (get-undirected-edge-weight #'--w--)
-     (let ([w (regexp-match 
-               (regexp "(?<=^--)[0-9]+(?=--$)")
-               (symbol->string (syntax->datum #'--w--)))])
-       (with-syntax ([(w) (datum->syntax #'--w-- w)])
+     (let* ([w (string->number (car (get-undirected-edge-weight #'--w--)))
+            #;(string->number
+             (regexp-match 
+              (regexp "(?<=^--)[0-9]+(?=--$)")
+              (symbol->string (syntax->datum #'--w--))))])
+       (with-syntax ([w (datum->syntax #'--w-- w)])
        #'(add-weighted-edge (weighted-graph rest ...) 'u 'v w)))]
     [(_ (u -> v) rest ...) #'(add-di-edge (graph rest ...) 'u 'v)]
     [(_ (u <- v) rest ...) #'(add-di-edge (graph rest ...) 'v 'u)]
