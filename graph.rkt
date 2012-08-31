@@ -5,7 +5,7 @@
 (provide graph weighted-graph make-graph 
          add-edge add-di-edge add-edge! add-di-edge! add-vertex add-vertex!
          add-weighted-edge
-         get-neighbors get-vertices
+         get-neighbors get-vertices in-neighbors in-vertices in-graph
          bfs dfs dfs-with-sorting tsort dag? tsorted? transpose scc print-π)
 
 ;; TODO:
@@ -33,8 +33,11 @@
 #;(define-struct graph (ht)
   #:omit-define-syntaxes)
 
+(define-syntax-rule (in-graph g) (in-hash g))
 (define (get-neighbors g v) (hash-ref g v))
+(define-syntax-rule (in-neighbors g v) (in-set (get-neighbors g v)))
 (define (get-vertices g) (hash-keys g))
+(define-syntax-rule (in-vertices g) (get-vertices g))
 
 
 ; graph is a immutable hash table -- in the future wrap the ht with a struct

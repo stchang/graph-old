@@ -1,7 +1,10 @@
 #lang racket
+
 (require "graph.rkt")
 
-(provide mst-kruskal)
+(require data/heap)
+
+(provide mst-kruskal mst-prim)
 
 ;; TODO
 ;; 2012-08-28
@@ -42,7 +45,47 @@
   )
 
 
+(define-syntax (in-heap stx)
+  (syntax-case stx ()
+    [(_ h)
+     ;; position = heap h
+     #'(make-do-sequence 
+        (thunk (values 
+                heap-min
+                (λ (hp) (heap-remove-min! hp) hp)
+                h
+                (λ (hp) (not (= 0 (heap-count hp))))
+                #f
+                #f)))]))
+
 ;; ---------- Prim: -----------------------------------------------------------
 ;; greedy algorithm to calculate MST
 ;; Ideally, O(E log V) w binary heaps, or O(E + V log V) w Fibonacci heaps.
 ;; For now, using regular sets
+
+(define (mst-prim G)
+  ;; key[v] is smallest weight of any edge connecting v to (partial) mst
+  (define key (make-hash)) 
+  ;; π[v] is the parent of v in mst
+  (define π (make-hash))
+  ;; top v in Q is v not in mst with smallest weight edge connecting it to mst
+  ;; ie, the next edge to add to mst
+  (define Q (make-heap (λ (x y) (< (hash-ref key x) (hash-ref key y)))))
+  (define Q-set (set)) ;; same elements as Q but allows set lookup
+  
+    ;; init all weights to ∞
+  (for ([v (in-vertices G)])
+    (hash-set! key v +inf.0)
+    (heap-add! Q v)
+    (set! Q-set (set-add Q-set v)))
+  
+  (for ([u (in-heap Q)]) ; u is min, on each iteration u is added to mst
+    (set! Q-set (set-remove Q-set u))
+    ;; update π and key to account for new u in mst
+    (for ([v+w (in-neighbors G u)]) 
+      (define v (car v+w)) (define wgt (cdr v+w))
+      (when (and (set-member? Q-set v) (< wgt (hash-ref key v)))
+        (hash-set! π v u)
+        (hash-set! key v wgt))))
+  π
+  )
