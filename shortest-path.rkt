@@ -36,16 +36,11 @@
   
   ;; find shortest paths
   (for ([_  (cdr vs)]) ;; 1 to |V[G]|-1
-    (for* ([u vs]
-           [v+w (in-neighbors G u)])
-      (define v (car v+w)) (define wgt (cdr v+w))
-      (relax u v wgt)
-      ))
+    (for ([(u v wgt) (in-edges G)])
+      (relax u v wgt)))
   
   ;; detect negative weight cycle
-  (if (for*/or ([u vs]
-                [v+w (in-neighbors G u)])
-        (define v (car v+w)) (define wgt (cdr v+w))
+  (if (for/or ([(u v wgt) (in-edges G)])
         (> (hash-ref d v) (+ (hash-ref d u) wgt)))
       #f
       (values d π)))

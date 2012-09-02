@@ -5,7 +5,7 @@
 (provide graph weighted-graph make-graph 
          add-edge add-di-edge add-edge! add-di-edge! add-vertex add-vertex!
          add-weighted-edge
-         get-neighbors get-vertices in-neighbors in-vertices in-graph
+         get-neighbors get-vertices in-neighbors in-vertices in-graph in-edges
          bfs dfs dfs-with-sorting tsort dag? tsorted? transpose scc 
          print-π get-path-to)
 
@@ -39,6 +39,96 @@
 (define-syntax-rule (in-neighbors g v) (in-set (get-neighbors g v)))
 (define (get-vertices g) (hash-keys g))
 (define-syntax-rule (in-vertices g) (get-vertices g))
+;; in-edges sequence produces elements that are triple (u v wgt)
+(define-syntax (in-weighted-edges stx)
+  (syntax-case stx ()
+    [(_ g)
+     ;; a Pos is (list it u [ListOf (cons v wgt)])
+     ;; where      (hash-iterate-key g it) = u
+     ;; (set->list (hash-iterate-value g it) = [ListOf (cons v wgt)]
+     #'(make-do-sequence
+        (letrec 
+         ;; iterates g with hash-iterate until it finds non-empty-set value
+         ;; then makes the next Pos
+         ;; returns #f if reaches end of hash iteration
+         ([get-next-pos
+           (λ (it)
+             (and it
+                  (let ([vs+ws (hash-iterate-value g it)])
+                    (if (set-empty? vs+ws)
+                        (get-next-pos (hash-iterate-next g it))
+                        (list it (hash-iterate-key g it) (set->list vs+ws))))))])
+          (thunk
+           (values 
+            ;; pos -> element
+            (match-lambda
+              [(list it u (list (cons v wgt) rst (... ...)))
+               (values u v wgt)])
+            ;; next-pos
+            (match-lambda
+              [(list it u vs+ws)
+               (let ([rest-vs+ws (rest vs+ws)])
+                 ;; if no more u neighbors, then find next u
+                 (if (null? rest-vs+ws)
+                     (get-next-pos (hash-iterate-next g it))
+                     (list it u rest-vs+ws)))])
+            ;; initial pos
+            (get-next-pos (hash-iterate-first g))
+            ;;
+            ;; end when pos = #f
+            (λ (pos) pos)
+            #f
+            #f))))]))
+;; copied from in-weighted-edges and drops wgt var
+(define-syntax (in-unweighted-edges stx)
+  (syntax-case stx ()
+    [(_ g)
+     ;; a Pos is (list it u [ListOf (cons v wgt)])
+     ;; where      (hash-iterate-key g it) = u
+     ;; (set->list (hash-iterate-value g it) = [ListOf (cons v wgt)]
+     #'(make-do-sequence
+        (letrec 
+         ;; iterates g with hash-iterate until it finds non-empty-set value
+         ;; then makes the next Pos
+         ;; returns #f if reaches end of hash iteration
+         ([get-next-pos
+           (λ (it)
+             (and it
+                  (let ([vs+ws (hash-iterate-value g it)])
+                    (if (set-empty? vs+ws)
+                        (get-next-pos (hash-iterate-next g it))
+                        (list it (hash-iterate-key g it) (set->list vs+ws))))))])
+          (thunk
+           (values 
+            ;; pos -> element
+            (match-lambda
+              [(list it u (list (cons v wgt) rst (... ...)))
+               (values u v)])
+            ;; next-pos
+            (match-lambda
+              [(list it u vs+ws)
+               (let ([rest-vs+ws (rest vs+ws)])
+                 ;; if no more u neighbors, then find next u
+                 (if (null? rest-vs+ws)
+                     (get-next-pos (hash-iterate-next g it))
+                     (list it u rest-vs+ws)))])
+            ;; initial pos
+            (get-next-pos (hash-iterate-first g))
+            ;;
+            ;; end when pos = #f
+            (λ (pos) pos)
+            #f
+            #f))))]))
+
+(define-sequence-syntax in-edges
+  (λ () #'(λ (x) x))
+  (λ (stx)
+    (syntax-case stx ()
+      [[(u v) (_ g)]
+       #'[(u v) (in-unweighted-edges g)]]
+      [[(u v wgt) (_ g)]
+       #'[(u v wgt) (in-weighted-edges g)]])))
+        
 
 
 ; graph is a immutable hash table -- in the future wrap the ht with a struct
