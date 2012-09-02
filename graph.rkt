@@ -6,7 +6,8 @@
          add-edge add-di-edge add-edge! add-di-edge! add-vertex add-vertex!
          add-weighted-edge
          get-neighbors get-vertices in-neighbors in-vertices in-graph
-         bfs dfs dfs-with-sorting tsort dag? tsorted? transpose scc print-π)
+         bfs dfs dfs-with-sorting tsort dag? tsorted? transpose scc 
+         print-π get-path-to)
 
 ;; TODO:
 ;; 2012-07-15
@@ -58,20 +59,32 @@
     (regexp-match 
      (regexp "(?<=^--)[0-9]+(?=--$)")
      (symbol->string (syntax->datum e))))
+  (define (get-directed-edge-weight-lr e)
+    (regexp-match 
+     (regexp "(?<=^--)-?[0-9]+(?=->$)")
+     (symbol->string (syntax->datum e))))
+  (define (get-directed-edge-weight-rl e)
+    (regexp-match 
+     (regexp "(?<=^<-)-?[0-9]+(?=--$)")
+     (symbol->string (syntax->datum e))))
   (syntax-case stx (-> <-)
     [(_) #'(make-immutable-hash)]
     [(_ v rest ...) (identifier? #'v) #'(add-vertex (graph rest ...) 'v)]
     [(_ (u --w-- v) rest ...)
      (get-undirected-edge-weight #'--w--)
-     (let* ([w (string->number (car (get-undirected-edge-weight #'--w--)))
-            #;(string->number
-             (regexp-match 
-              (regexp "(?<=^--)[0-9]+(?=--$)")
-              (symbol->string (syntax->datum #'--w--))))])
+     (let* ([w (string->number (car (get-undirected-edge-weight #'--w--)))])
        (with-syntax ([w (datum->syntax #'--w-- w)])
        #'(add-weighted-edge (weighted-graph rest ...) 'u 'v w)))]
-    [(_ (u -> v) rest ...) #'(add-di-edge (graph rest ...) 'u 'v)]
-    [(_ (u <- v) rest ...) #'(add-di-edge (graph rest ...) 'v 'u)]
+    [(_ (u --w-> v) rest ...)
+     (get-directed-edge-weight-lr #'--w->)
+     (let* ([w (string->number (car (get-directed-edge-weight-lr #'--w->)))])
+       (with-syntax ([w (datum->syntax #'--w-> w)])
+         #'(add-weighted-di-edge (weighted-graph rest ...) 'u 'v w)))]
+    [(_ (u <-w-- v) rest ...)
+     (get-directed-edge-weight-rl #'<-w--)
+     (let* ([w (string->number (car (get-directed-edge-weight-rl #'<-w--)))])
+       (with-syntax ([w (datum->syntax #'<-w-- w)])
+         #'(add-weighted-di-edge (weighted-graph rest ...) 'u 'v w)))]
     [(_ ((u (v ...)) ...)) 
      #'(make-immutable-hash (list (cons 'u (apply set '(v ...))) ...))]
     [(_ assocs) #'(make-immutable-hash assocs)]))
@@ -473,3 +486,18 @@
   (printf "~a " s)
   (let ([next (hash-ref π s)])
     (when next (print-π π next))))
+
+;; returns path from source s to v according to predecessor tree/forest π
+;; if source is unspecified, return path from root to v
+(define (get-path-to π v #:source [s #f])
+  (define (get-path-rev π v)
+    (if (equal? s v)
+        (cons v null)
+    (let ([u (hash-ref π v #f)])
+      (cons v (if u
+                  (get-path-rev π u)
+                  null)))))
+  (let ([res (reverse (get-path-rev π v))])
+    (if s 
+        (if (equal? s (car res)) res #f)
+        res)))
