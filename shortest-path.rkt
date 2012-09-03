@@ -1,10 +1,24 @@
 #lang racket
-(require "graph.rkt")
 
-(provide bellman-ford)
+(require "graph.rkt")
+(require "tsort.rkt")
+
+(provide bellman-ford
+         dag-shortest-path)
 
 ;; single source shortest path algorithms
 ;; graph g cannot have negative weight cycle reachable from source s
+
+(define-syntax (init-single-source stx)
+  (syntax-case stx ()
+    [(_ vs s)
+     (with-syntax ([d (datum->syntax stx 'd)]
+                   [π (datum->syntax stx 'π)])
+       #'(begin
+           (for ([v vs])
+             (hash-set! d v +inf.0)
+             (hash-set! π v #f))
+           (hash-set! d s 0)))]))
 
 (define-syntax (relax stx)
   (syntax-case stx ()
@@ -29,10 +43,11 @@
   (define vs (get-vertices G))
   
   ;; init single source 
-  (for ([v vs])
-    (hash-set! d v +inf.0)
-    (hash-set! π v #f))
-  (hash-set! d s 0)
+  (init-single-source vs s)
+;  (for ([v vs])
+;    (hash-set! d v +inf.0)
+;    (hash-set! π v #f))
+;  (hash-set! d s 0)
   
   ;; find shortest paths
   (for ([_  (cdr vs)]) ;; 1 to |V[G]|-1
@@ -46,6 +61,20 @@
       (values d π)))
   
   
+;; dag shortest path
+;; O (V + E)
+(define (dag-shortest-path G s)
+  (define d (make-hash))
+  (define π (make-hash))
+  
+  (define vs (get-vertices G))
+  
+  (init-single-source vs s)
+  
+  (for* ([u (tsort G)]
+         [(v wgt) (in-neighbors G u)])
+    (relax u v wgt))
+  (values d π))
   
   
   

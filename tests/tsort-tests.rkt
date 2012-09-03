@@ -1,6 +1,8 @@
 #lang racket
 
+(require "../tsort.rkt")
 (require "../graph.rkt")
+
 (require rackunit)
 
 ;; tests for topological sorting (tsort)

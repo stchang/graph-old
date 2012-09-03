@@ -5,8 +5,9 @@
 (provide graph weighted-graph make-graph 
          add-edge add-di-edge add-edge! add-di-edge! add-vertex add-vertex!
          add-weighted-edge
-         get-neighbors get-vertices in-neighbors in-vertices in-graph in-edges
-         bfs dfs dfs-with-sorting tsort dag? tsorted? transpose scc 
+         get-neighbors get-vertices 
+         in-neighbors in-vertices in-graph in-edges
+         bfs dfs dfs-with-sorting graph-fold-dfs dag? path? transpose scc 
          print-π get-path-to)
 
 ;; TODO:
@@ -35,10 +36,59 @@
   #:omit-define-syntaxes)
 
 (define-syntax-rule (in-graph g) (in-hash g))
+
 (define (get-neighbors g v) (hash-ref g v))
-(define-syntax-rule (in-neighbors g v) (in-set (get-neighbors g v)))
+;(define-syntax-rule (in-neighbors g v) (in-set (get-neighbors g v)))
+(define-syntax (in-weighted-neighbors stx)
+  (syntax-case stx ()
+    [(_ g u)
+     ;; Pos is [ListOf (cons v wgt)]
+     #'(make-do-sequence
+        (thunk
+         (values
+          ;; pos -> element
+          (match-lambda [(list (cons v wgt) rst (... ...)) (values v wgt)])
+          ;; next-pos
+          rest
+          ;; initial pos
+          (set->list (hash-ref g u (set)))
+          ;; termination condition
+          (λ (pos) (not (null? pos)))
+          #f
+          #f)))]))
+;; copied from in-weighted-neighbors
+(define-syntax (in-unweighted-neighbors stx)
+  (syntax-case stx ()
+    [(_ g u)
+     ;; Pos is [ListOf (cons v wgt)] or [ListOf v]
+     #'(make-do-sequence
+        (thunk
+         (values
+          ;; pos -> element
+          (match-lambda [(list (cons v wgt) rst (... ...)) v]
+                        [(list v rst (... ...)) v])
+          ;; next-pos
+          rest
+          ;; initial pos
+          (set->list (hash-ref g u (set)))
+          ;; termination condition
+          (λ (pos) (not (null? pos)))
+          #f
+          #f)))]))
+(define-sequence-syntax in-neighbors
+  (λ () #'(λ (g u) (for/list ([(v wgt) (in-neighbors g u)]) (list v wgt))))
+  (λ (stx)
+    (syntax-case stx ()
+      [[(v wgt) (_ g u)]
+       #'[(v wgt) (in-weighted-neighbors g u)]]
+      [[v (_ g u)]
+       #'[v (in-unweighted-neighbors g u)]])))
+        
+
+
 (define (get-vertices g) (hash-keys g))
 (define-syntax-rule (in-vertices g) (get-vertices g))
+
 ;; in-edges sequence produces elements that are triple (u v wgt)
 (define-syntax (in-weighted-edges stx)
   (syntax-case stx ()
@@ -121,7 +171,7 @@
             #f))))]))
 
 (define-sequence-syntax in-edges
-  (λ () #'(λ (x) x))
+  (λ () #'(λ (g) (for/list ([(u v wgt) (in-edges g)]) (list u v wgt))))
   (λ (stx)
     (syntax-case stx ()
       [[(u v) (_ g)]
@@ -174,7 +224,7 @@
      (get-directed-edge-weight-rl #'<-w--)
      (let* ([w (string->number (car (get-directed-edge-weight-rl #'<-w--)))])
        (with-syntax ([w (datum->syntax #'<-w-- w)])
-         #'(add-weighted-di-edge (weighted-graph rest ...) 'u 'v w)))]
+         #'(add-weighted-di-edge (weighted-graph rest ...) 'v 'u w)))]
     [(_ ((u (v ...)) ...)) 
      #'(make-immutable-hash (list (cons 'u (apply set '(v ...))) ...))]
     [(_ assocs) #'(make-immutable-hash assocs)]))
@@ -352,7 +402,7 @@
         (hash-set! color u 'gray)
 ;        (set! time (add1 time))
 ;        (hash-set! d u time)
-        (for ([v (in-set (hash-ref g u))])
+        (for ([v (in-neighbors g u) #;(in-set (hash-ref g u))])
           (when (eq? (hash-ref color v) 'white)
 ;            (hash-set! π v u)
             (VISIT v)))
@@ -493,19 +543,10 @@
   (values color d f π)
   )
 
-(define (tails lst)
+#;(define (tails lst)
   (if (null? lst)
       (list null)
       (cons lst (tails (rest lst)))))
-;; returns true if sorted-vs is a list of vertices in g in tsorted order
-;; assumes g is a dag
-(define (tsorted? g sorted-vs)
-    (if (null? sorted-vs)
-      true
-      (and (let ([u (first sorted-vs)])
-             (for/and ([v (rest sorted-vs)])
-               (not (path? g v u))))
-           (tsorted? g (rest sorted-vs)))))
 
 ;; true if g is a directed acyclic graph (dag)
 ;; (this is mostly copied from dfs -- without some of the result sets)
@@ -548,9 +589,7 @@
 ;  (values color d f π tsorted)
   )
   
-;; result is invalid if g is not dag
-;;(define (tsort g [dfs dfs]) (match/values (dfs g) [(_ _ _ _ sorted) sorted]))
-(define (tsort g [dfs graph-fold-dfs]) (dfs g cons null))
+
 
 ;; if g = (V,E), then (transpose g) = g' = (V,E'), where E' = {(u,v)|(v,u)∈E}
 ;; running time O(V+E)

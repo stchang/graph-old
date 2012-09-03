@@ -82,8 +82,7 @@
   (for ([u (in-heap Q)]) ; u is min, on each iteration u is added to mst
     (set! Q-set (set-remove Q-set u))
     ;; update π and key to account for new u in mst
-    (for ([v+w (in-neighbors G u)]) 
-      (define v (car v+w)) (define wgt (cdr v+w))
+    (for ([(v wgt) (in-neighbors G u)]) 
       (when (and (set-member? Q-set v) (< wgt (hash-ref key v)))
         (hash-set! π v u)
         (hash-set! key v wgt))))

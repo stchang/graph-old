@@ -15,11 +15,11 @@
 
 (check-equal? 
  g
- (weighted-graph (s <-6-- t) (s <-7-- y)
-                 (t <-5-- x) (t <-8-- y) (t <--4-- z)
-                 (x <--2-- t)
-                 (y <--3-- x) (y <-9-- z)
-                 (z <-2-- s) (z <-7-- x)))
+ (weighted-graph (t <-6-- s) (y <-7-- s)
+                 (x <-5-- t) (y <-8-- t) (z <--4-- t)
+                 (t <--2-- x)
+                 (x <--3-- y) (z <-9-- y)
+                 (s <-2-- z) (x <-7-- z)))
 
 (define-values (d π) (bellman-ford g 's))
 
@@ -56,11 +56,11 @@
 
 (check-equal? 
  g2
- (weighted-graph (s <-3-- t) (s <-5-- y)
-                 (t <-6-- x) (t <-2-- y) 
-                 (x <-2-- z)
-                 (y <-1-- t) (y <-4-- x) (y <-6-- z)
-                 (z <-3-- s) (z <-7-- x)))
+ (weighted-graph (t <-3-- s) (y <-5-- s)
+                 (x <-6-- t) (y <-2-- t) 
+                 (z <-2-- x)
+                 (t <-1-- y) (x <-4-- y) (z <-6-- y)
+                 (s <-3-- z) (x <-7-- z)))
 
 (define-values (d2 π2) (bellman-ford g2 's))
 
@@ -79,3 +79,25 @@
                            (f ---6-> e) (f --7-> g)))
 
 (check-false (bellman-ford g3 's))
+
+
+
+
+;;;;;;;;;; dag shortest path tests ;;;;;;;;;;
+(define dag (weighted-graph (r --5-> s) (r --3-> t)
+                            (s --2-> t) (s --6-> x)
+                            (t --7-> x) (t --4-> y) (t --2-> z)
+                            (x ---1-> y) (x --1-> z)
+                            (y ---2-> z)))
+(check-equal?
+ dag
+ (weighted-graph (s <-5-- r) (t <-3-- r)
+                 (t <-2-- s) (x <-6-- s)
+                 (x <-7-- t) (y <-4-- t) (z <-2-- t)
+                 (y <--1-- x) (z <-1-- x)
+                 (z <--2-- y)))
+
+(define-values (d-dag π-dag) (dag-shortest-path dag 's))
+
+(check-equal? d-dag (make-hash '((r . +inf.0) (s . 0) (t . 2) (x . 6) (y . 5) (z . 3))))
+(check-equal? π-dag (make-hash '((r . #f) (s . #f) (t . s) (x . s) (y . x) (z . y))))
