@@ -84,6 +84,7 @@
 
 
 ;;;;;;;;;; dag shortest path tests ;;;;;;;;;;
+;; fig 24.5, p593
 (define dag (weighted-graph (r --5-> s) (r --3-> t)
                             (s --2-> t) (s --6-> x)
                             (t --7-> x) (t --4-> y) (t --2-> z)
@@ -101,3 +102,25 @@
 
 (check-equal? d-dag (make-hash '((r . +inf.0) (s . 0) (t . 2) (x . 6) (y . 5) (z . 3))))
 (check-equal? π-dag (make-hash '((r . #f) (s . #f) (t . s) (x . s) (y . x) (z . y))))
+
+
+
+;;;;;;;;;; dijkstra tests ;;;;;;;;;;
+(define g-dij (weighted-graph (s --10-> t) (s --5-> y)
+                              (t --1-> x)  (t --2-> y)
+                              (x --4-> z)
+                              (y --3-> t)  (y --9-> x) (y --2-> z)
+                              (z --6-> x)  (z --7-> s)))
+
+(check-equal?
+ g-dij
+ (weighted-graph `((s . ,(apply set '((t . 10) (y . 5))))
+                   (t . ,(apply set '((x . 1)  (y . 2))))
+                   (x . ,(apply set '((z . 4))))
+                   (y . ,(apply set '((t . 3)  (x . 9) (z . 2))))
+                   (z . ,(apply set '((x . 6)  (s . 7)))))))
+
+(define-values (d-dij π-dij) (dijkstra g-dij 's))
+
+(check-equal? d-dij (make-hash '((s . 0) (t . 8) (x . 9) (y . 5) (z . 7))))
+(check-equal? π-dij (make-hash '((s . #f) (t . y) (x . t) (y . s) (z . y))))

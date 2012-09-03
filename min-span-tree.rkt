@@ -3,6 +3,7 @@
 (require "graph.rkt")
 
 (require data/heap)
+(require "heap-utils.rkt")
 
 (provide mst-kruskal mst-prim)
 
@@ -44,19 +45,6 @@
   A
   )
 
-
-(define-syntax (in-heap stx)
-  (syntax-case stx ()
-    [(_ h)
-     ;; position = heap h
-     #'(make-do-sequence 
-        (thunk (values 
-                heap-min
-                (λ (hp) (heap-remove-min! hp) hp)
-                h
-                (λ (hp) (not (= 0 (heap-count hp))))
-                #f
-                #f)))]))
 
 ;; ---------- Prim: -----------------------------------------------------------
 ;; greedy algorithm to calculate MST

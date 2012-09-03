@@ -2,9 +2,10 @@
 
 (require "graph.rkt")
 (require "tsort.rkt")
+(require data/heap)
+(require "heap-utils.rkt")
 
-(provide bellman-ford
-         dag-shortest-path)
+(provide bellman-ford dag-shortest-path dijkstra)
 
 ;; single source shortest path algorithms
 ;; graph g cannot have negative weight cycle reachable from source s
@@ -41,13 +42,7 @@
   (define π (make-hash))
   
   (define vs (get-vertices G))
-  
-  ;; init single source 
   (init-single-source vs s)
-;  (for ([v vs])
-;    (hash-set! d v +inf.0)
-;    (hash-set! π v #f))
-;  (hash-set! d s 0)
   
   ;; find shortest paths
   (for ([_  (cdr vs)]) ;; 1 to |V[G]|-1
@@ -66,11 +61,10 @@
 (define (dag-shortest-path G s)
   (define d (make-hash))
   (define π (make-hash))
-  
+ 
   (define vs (get-vertices G))
-  
   (init-single-source vs s)
-  
+
   (for* ([u (tsort G)]
          [(v wgt) (in-neighbors G u)])
     (relax u v wgt))
@@ -80,4 +74,24 @@
   
 ;; Dijkstra
 ;; graph g must have all nonnegative edge weights
+(define (dijkstra G s)
+  (define d (make-hash))
+  (define π (make-hash))
+  
+  (define Q (make-heap (λ (u v) (< (hash-ref d u) (hash-ref d v)))))
 
+;  (init-single-source vs s)
+  (for ([v (in-vertices G)])
+    (when (not (equal? s v))
+      (hash-set! d v +inf.0)
+      (heap-add! Q v))
+    (hash-set! π v #f))
+  (hash-set! d s 0)
+  (heap-add! Q s)
+  
+
+  (for ([u (in-heap Q)])
+    (for ([(v wgt) (in-neighbors G u)])
+      (relax u v wgt)))
+  
+  (values d π))
