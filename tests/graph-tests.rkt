@@ -41,7 +41,7 @@
 ;(check-false (dag? g1))
 
 ;; check bfs result
-(let-values ([(color dist π) (bfs g1 's)])
+(let-values ([(dist π) (bfs g1 's)])
   (check-equal? 
    dist 
    (make-hash (list (cons 'r 1) (cons 'v 2) (cons 's 0) (cons 'w 1) 
@@ -50,7 +50,7 @@
    dist 
    (make-hash '((r . 1) (v . 2) (s . 0) (w . 1) 
                 (t . 2) (x . 2) (u . 3) (y . 3))))
-  (check-equal? 
+  #;(check-equal? 
    color
    (make-hash '((r . black) (v . black) (s . black) (w . black) 
                 (t . black) (x . black) (u . black) (y . black))))
