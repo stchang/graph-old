@@ -1,11 +1,11 @@
 #lang racket
 
-(require "graph.rkt")
+(require "graph-defs.rkt"
+         "bfs.rkt"
+         "queue-generic.rkt")
 
-(require data/heap)
-(require "heap-utils.rkt")
 
-(provide mst-kruskal mst-prim)
+(provide mst-prim)
 
 ;; TODO
 ;; 2012-08-28
@@ -21,7 +21,7 @@
 ;; greedy algorithm to calculate MST 
 ;; Should ideally be O(E log V) with disjoint set data structure.
 ;; For now, using regular sets
-(define (mst-kruskal G)
+#;(define (mst-kruskal G)
   (define v-sets ;; maps each vertex to a set number
     (for/hasheq ([v (get-vertices G)] [i (in-naturals)]) (values v i)))
   (define edges
@@ -50,29 +50,44 @@
 ;; greedy algorithm to calculate MST
 ;; Ideally, O(E log V) w binary heaps, or O(E + V log V) w Fibonacci heaps.
 ;; For now, using regular sets
-
-(define (mst-prim G)
+(define (mst-prim G [root #f])
   ;; key[v] is smallest weight of any edge connecting v to (partial) mst
   (define key (make-hash)) 
   ;; π[v] is the parent of v in mst
   (define π (make-hash))
   ;; top v in Q is v not in mst with smallest weight edge connecting it to mst
   ;; ie, the next edge to add to mst
-  (define Q (make-heap (λ (x y) (< (hash-ref key x) (hash-ref key y)))))
-  (define Q-set (set)) ;; same elements as Q but allows set lookup
+  (define Q (make-heap (λ (u v) (< (hash-ref key u) (hash-ref key v)))))
+  (define Q-set (set)) ;; same elements as Q but allows set lookup and removal
   
-    ;; init all weights to ∞
-  (for ([v (in-vertices G)])
-    (hash-set! key v +inf.0)
-    (heap-add! Q v)
-    (set! Q-set (set-add Q-set v)))
+  ;; init all weights to ∞, except root
+  (if root
+      (begin
+        (for ([v (in-vertices G)])
+          (when (not (equal? v root))
+            (hash-set! key v +inf.0)
+            (enqueue! Q v))
+          (hash-set! π v #f)
+          (set! Q-set (set-add Q-set v)))
+        (hash-set! key root 0)
+        (enqueue! Q root))
+      (for ([v (in-vertices G)])
+        (hash-set! key v +inf.0)
+        (hash-set! π v #f)
+        (enqueue! Q v)
+        (set! Q-set (set-add Q-set v))))
   
-  (for ([u (in-heap Q)]) ; u is min, on each iteration u is added to mst
-    (set! Q-set (set-remove Q-set u))
-    ;; update π and key to account for new u in mst
-    (for ([(v wgt) (in-neighbors G u)]) 
-      (when (and (set-member? Q-set v) (< wgt (hash-ref key v)))
-        (hash-set! π v u)
-        (hash-set! key v wgt))))
+  (define (pre-visit u) (set! Q-set (set-remove Q-set u)))
+  (define (unvisited? v) (set-member? Q-set v))
+  (define (visit u v wgt)
+    (when (< wgt (hash-ref key v))
+      (hash-set! π v u)
+      (hash-set! key v wgt)
+      (refresh Q)))
+
+  (bfs-generic G Q #:unvisited? unvisited?
+                   #:pre-visit pre-visit
+                   #:visit visit)
+  
   π
   )

@@ -1,11 +1,12 @@
 #lang racket
 
 (require "graph-defs.rkt"
-         "bfs.rkt")
+         "bfs.rkt"
+         "queue-generic.rkt")
 ;(require "tsort.rkt")
 ;(require data/heap)
 ;(require "heap-utils.rkt")
-(require "queue-generic.rkt")
+
 
 ;(provide bellman-ford dag-shortest-path dijkstra)
 (provide dijkstra)
@@ -27,11 +28,11 @@
 (define-syntax (relax stx)
   (syntax-case stx ()
     [(_ u v wgt)
-     (with-syntax ([d (datum->syntax stx 'd)]
+     (with-syntax ([dist (datum->syntax stx 'dist)]
                    [π (datum->syntax stx 'π)])
-       #'(let ([du+wgt (+ (hash-ref d u) wgt)])
-           (when (> (hash-ref d v) du+wgt)
-             (hash-set! d v du+wgt)
+       #'(let ([dist-to-u+wgt (+ (hash-ref dist u) wgt)])
+           (when (> (hash-ref dist v) dist-to-u+wgt)
+             (hash-set! dist v dist-to-u+wgt)
              (hash-set! π v u))))]))
 
 ;; Bellman-Ford
@@ -78,21 +79,25 @@
 ;; Dijkstra
 ;; graph g must have all nonnegative edge weights
 (define (dijkstra G s)
-  (define d (make-hash))
+  (define dist (make-hash))
+  (define (dist-to v) (hash-ref dist v))
   (define π (make-hash))
-  (define Q (make-heap (λ (u v) (< (hash-ref d u) (hash-ref d v)))))
+  (define Q (make-heap (λ (u v) (< (dist-to u) (dist-to v)))))
 
 ;  (init-single-source vs s)
   (for ([v (in-vertices G)])
-    (hash-set! d v +inf.0)
-    (hash-set! π v #f)
-    (enqueue! Q v))
-  (hash-set! d s 0)
+    (when (not (equal? s v))
+      (hash-set! dist v +inf.0)
+      (enqueue! Q v))
+    (hash-set! π v #f))
+  ; dist[s] must be set to 0 before enqueuing s, due to imperativeness
+  (hash-set! dist s 0)
+  (enqueue! Q s)
   
-
-  (bfs-generic G s Q)
+  (bfs-generic G Q #:process-visited (λ (u v wgt) (relax u v wgt) (refresh Q)))
+  
   #;(for ([u (in-heap Q)])
     (for ([(v wgt) (in-neighbors G u)])
       (relax u v wgt)))
   
-  (values d π))
+  (values dist π))

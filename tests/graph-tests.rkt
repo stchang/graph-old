@@ -26,16 +26,25 @@
 ;; check equality with assoc list representation
 (check-equal? 
  g1 
- (graph (list (cons 'r (set 's 'v))    (cons 'v (set 'r)) 
-              (cons 's (set 'r 'w))    (cons 'w (set 'x 't 's))
-              (cons 't (set 'w 'x 'u)) (cons 'x (set 'w 't 'y 'u))
-              (cons 'u (set 'y 'x 't)) (cons 'y (set 'x 'u)))))
+ (graph (list (cons 'r (set '(s . 1) '(v . 1)))    
+              (cons 's (set '(r . 1) '(w . 1))) 
+              (cons 't (set '(w . 1) '(x . 1) '(u . 1)))   
+              (cons 'u (set '(y . 1) '(x . 1) '(t . 1)))
+              (cons 'v (set '(r . 1))) 
+              (cons 'w (set '(x . 1) '(t . 1) '(s . 1)))
+              (cons 'x (set '(w . 1) '(t . 1) '(y . 1) '(u . 1))) 
+              (cons 'y (set '(x . 1) '(u . 1))))))
 ;; check equality with another assoc list representation
 (check-equal? 
  g1 
- (graph `((r . ,(set 's 'v))    (v . ,(set 'r))       (s . ,(set 'r 'w)) 
-          (w . ,(set 'x 't 's)) (t . ,(set 'w 'x 'u)) (x . ,(set 'w 't 'y 'u))
-          (u . ,(set 'y 'x 't)) (y . ,(set 'x 'u)))))
+ (graph `((r . ,(set '(s . 1) '(v . 1)))   
+          (s . ,(set '(r . 1) '(w . 1)))
+          (t . ,(set '(w . 1) '(x . 1) '(u . 1))) 
+          (u . ,(set '(y . 1) '(x . 1) '(t . 1)))
+          (v . ,(set '(r . 1)))
+          (w . ,(set '(x . 1) '(t . 1) '(s . 1)))
+          (x . ,(set '(w . 1) '(t . 1) '(y . 1) '(u . 1))) 
+          (y . ,(set '(x . 1) '(u . 1))))))
   
 ;;; g1 not dag because it's undirected
 ;(check-false (dag? g1))
