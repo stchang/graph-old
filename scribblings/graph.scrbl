@@ -7,6 +7,7 @@
 @title{Graphs}
 
 @(define the-eval (make-base-eval))
+@(the-eval '(require racket/set))
 @(the-eval '(require "../graph-defs.rkt"))
 
 @defmodule["../graph-defs.rkt"]
@@ -32,13 +33,59 @@ Graph library. Partially based on C++ Boost Graph Library. See Lee et al. OOPSLA
 }
 
 @defproc[(graph? [g any/c]) boolean?]{
-Returns @racket[#t] if @racket[g] is a @tech{graph} and @racket[#f] otherwise.}
+  Returns @racket[#t] if @racket[g] is a @tech{graph} and @racket[#f] otherwise.
+}
+
+
+@defform/subs[(graph edge-or-vertex ...)
+              ([edge-or-vertex vertex
+                               (vertex edge vertex)]
+               [vertex datum]
+               [edge -- → ←])]{
+  Syntax to create an unweighted graph using literals. Vertices can be any literal. 
+  Edges are specified with two vertices, separated by either @racket[--], for undirected, 
+  or @racket[→] or @racket[←], for directed edges 
+  (the literal symbols are \rightarrow and \leftarrow).
+  
+  @examples[
+  #:eval the-eval
+  (graph a b c)
+  (graph (a -- b) (a -- c) d)
+  (graph a (b → c) (c → d) (d → a))
+  (graph (a ← b) c (c ← d) (d → e) f)
+  (graph (1 → 2) 3 (1 → a) (b ← 4) c (a -- b))
+  ]
+}
+                              
+@defform/subs[(graph ((vertex (vertex ...)) ...))
+              ([vertex datum])]{
+  Alternative syntax to create unweighted graph using vertex/list-of-neighbor-vertices 
+  pairs of literals. A vertex is any literal.
+  
+  @examples[
+  #:eval the-eval
+  (graph (a (a b c)) (b (c d e)) (f (d)))
+  (graph (1 (2 3)) (4 (a b)))
+  ]
+}
+
+@defform[(graph assocs)]{
+  Creates an unweighted graph using list of vertex/set-of-neighbor pair values 
+  (as opposed to literals). A vertex is any value and the neighbors must be a set.
+  
+  @examples[
+  #:eval the-eval
+  (graph (list (cons 'a (set 'b 'c)) (cons 'b (set 'c 'd))))
+  ]
+}
+
 
 
 @defproc[(add-vertex [graph graph?]
                      [v any/c])
          graph?]{
-Adds vertex @racket[v] to @racket[graph] and returns the new graph.
+  Adds vertex @racket[v] to @racket[graph] and returns the new graph. 
+  Vertices are compared using @racket[equal?].
 }
                 
 @defproc[(add-edge [graph graph?]
@@ -46,11 +93,9 @@ Adds vertex @racket[v] to @racket[graph] and returns the new graph.
                    [v any/c]
                    [weight 1])
          graph?]{
-
-Adds the undirected edge from @racket[u] to @racket[v], with optional 
-@racket[weight] to @racket[graph], adding the vertices first, if necessary.
-Equivalent to adding two directed edges, one in each direction.
-
+  Adds the undirected edge from @racket[u] to @racket[v], with optional 
+  @racket[weight] to @racket[graph], adding the vertices first, if necessary.
+  Equivalent to adding two directed edges, one in each direction.
 }
                 
 @defproc[(add-di-edge [graph graph?]
@@ -58,40 +103,30 @@ Equivalent to adding two directed edges, one in each direction.
                       [v any/c]
                       [weight 1]) 
          graph?]{
-
-Adds the directed edge from @racket[u] to @racket[v], with optional 
-@racket[weight] to @racket[graph], adding the vertices first, if necessary. 
-
+  Adds the directed edge from @racket[u] to @racket[v], with optional 
+  @racket[weight] to @racket[graph], adding the vertices first, if necessary. 
 }
 
 @defproc[(in-vertices [graph graph?])
-         sequence?]{
-                 
-Returns a sequence whose elements are the vertices of @racket[graph].
-
+         sequence?]{              
+  Returns a sequence whose elements are the vertices of @racket[graph].
 }
 
 @defproc[(in-neighbors [graph graph?]
                        [v any/c])
          sequence?]{
-                 
-Returns a sequence whose elements are the neighbors of vertex @racket[v] 
-in @racket[graph].
-                                                              
+  Returns a sequence whose elements are the neighbors of vertex @racket[v] 
+  in @racket[graph].                                                            
 }
 
 @defproc[(in-weighted-neighbors [graph graph?]
                                 [v any/c])
          sequence?]{
-                 
-Returns a sequence whose elements consist of two values, a neighbor of
-vertex @racket[v] in @racket[graph], and the weight of the edge connecting 
-@racket[v] to that neighbor.
-
+  Returns a sequence whose elements consist of two values, a neighbor of
+  vertex @racket[v] in @racket[graph], and the weight of the edge connecting 
+  @racket[v] to that neighbor.
 }
 
-@defproc[(graph [assocs (listof pair?) null]) graph?]{
-Creates an immutable graph, with the given key-value pairs, where a key is a vertex in the graph and a value is the set of neighbors for that vertex}
 
 
 @(bibliography

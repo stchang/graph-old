@@ -8,6 +8,7 @@
 
 ;; ----------------------------------------------------------------------------
 ;; Generic graph interface
+;; ----------------------------------------------------------------------------
 
 (define-generics graph
   (add-vertex graph node)
@@ -16,13 +17,13 @@
   (in-vertices graph)
   (in-neighbors graph node)
   (in-weighted-neighbors graph node))
+;; need sorted versions of in-vertices, etc?
 
-;(define (graph? g) (or (G? g) (WG? g)))
 
 
-;; ----------------------------------------------------------------------------
 ;; ----------------------------------------------------------------------------
 ;; Unweighted graphs
+;; ----------------------------------------------------------------------------
 
 ;; used when weight is requested for unweighted graph
 (define DEFAULT-WEIGHT 1)
@@ -33,8 +34,10 @@
 (struct G (ht) #:transparent
   #:methods gen:graph
   [(define (add-vertex g v) (G (add-vertex/internal (G-ht g) v)))
-   (define (add-di-edge g u v [wgt 1]) (G (add-di-edge/internal (G-ht g) u v)))
-   (define (add-edge g u v [wgt 1]) (G (add-edge/internal (G-ht g) u v)))
+   (define (add-di-edge g u v [wgt DEFAULT-WEIGHT])
+     (G (add-di-edge/internal (G-ht g) u v)))
+   (define (add-edge g u v [wgt DEFAULT-WEIGHT])
+     (G (add-edge/internal (G-ht g) u v)))
    
    (define (in-vertices g) (in-hash-keys (G-ht g)))
    (define (in-neighbors g v)
@@ -73,26 +76,59 @@
 
 ;; associate empty set with vertex v if it does not exist
 (define (add-vertex/internal ht v) (hash-update ht v (λ (s) s) (set)))
+(define (add-vertices/internal ht vs)
+  (foldl (λ (v hsh) (add-vertex/internal hsh v)) ht vs))
 
   ;; add directed edge u -> v but dont try to add vertex v
 (define (add-di-edge/internal/no-vertex-check ht u v) 
   (hash-update ht u (λ (s) (set-add s v)) (set)))
 
 ;; add directed edge from u to v, and make sure vertex v is in g
-(define (add-di-edge/internal ht u v wgt)
+(define (add-di-edge/internal ht u v)
   (add-vertex/internal (add-di-edge/internal/no-vertex-check ht u v) v))
 
 ;; add undirected edge from u to v
-(define (add-edge/internal ht u v wgt)
+(define (add-edge/internal ht u v)
   (add-di-edge/internal/no-vertex-check (add-di-edge/internal ht u v) v u))
 
+;; unweighted graph constructor
+(define-syntax-rule (mk-graph args ...) 
+  (G (mk-unweighted-internal-hash args ...)))
 
-(define-syntax-rule (mk-graph args ...) (G (mk-internal-hash args ...)))
+;; macro to create internal hash table for unweighted graph
+(define-syntax (mk-unweighted-internal-hash stx)
+  (syntax-case stx (-- → ←)
+    [(_) #'(make-immutable-hash)]
+    ;; --------------------
+    ;; literal syntax:
+    
+    ;; vertex only
+    [(_ v rest ...) 
+     (or (identifier? #'v) (number? (syntax->datum #'v)))
+     #'(add-vertex/internal  (mk-unweighted-internal-hash rest ...) 'v)]
+    
+    ;; unweighted edges
+    [(_ (u -- v) rest ...) 
+     #'(add-edge/internal    (mk-unweighted-internal-hash rest ...) 'u 'v)]
+    [(_ (u → v) rest ...) 
+     #'(add-di-edge/internal (mk-unweighted-internal-hash rest ...) 'u 'v)]
+    [(_ (u ← v) rest ...) 
+     #'(add-di-edge/internal (mk-unweighted-internal-hash rest ...) 'v 'u)]
+
+    ;; literal list of pairs
+    [(_ (u (v ...)) ...)
+     #`(add-vertices/internal 
+        (make-immutable-hash (list (cons 'u (apply set '(v ...))) ...))
+        '(v ... ...))]
+    
+    ;; --------------------
+    ;; list of pairs
+    [(_ assocs) #'(make-immutable-hash assocs)]))
 
 
-;; ----------------------------------------------------------------------------
 ;; ----------------------------------------------------------------------------
 ;; Weighted graphs
+;; ----------------------------------------------------------------------------
 
  
 
@@ -102,8 +138,10 @@
 (struct WG (ht) #:transparent
   #:methods gen:graph
   [(define (add-vertex g v) (WG (add-vertex/internal (WG-ht g) v)))
-   (define (add-di-edge g u v [wgt 0]) (WG (add-di-wedge/internal (WG-ht g) u v wgt)))
-   (define (add-edge g u v [wgt 0]) (WG (add-wedge/internal (WG-ht g) u v wgt)))
+   (define (add-di-edge g u v [wgt 0]) 
+     (WG (add-di-wedge/internal (WG-ht g) u v wgt)))
+   (define (add-edge g u v [wgt 0]) 
+     (WG (add-wedge/internal (WG-ht g) u v wgt)))
    
    (define (in-vertices g) (in-hash-keys (WG-ht g)))
    (define (in-neighbors g v)
